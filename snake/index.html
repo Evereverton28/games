@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="ui">
+    <div>Score: <span id="scoreEl">0</span></div>
+    <div id="titleEl">SNAKE</div>
+    <div>Best: <span id="highEl">0</span></div>
+  </div>
+  <div id="wrap">
+    <canvas id="gc"></canvas>
+    <div id="overlay">
+      <div id="msg">SNAKE</div>
+      <div id="sub">Arrow keys or WASD to move</div>
+      <button id="startBtn" onclick="startGame()">Start Game ▶</button>
+    </div>
+  </div>
+  <div id="pauseHint"></div>
+  <script src="script.js"></script>
+</body>
+</html>

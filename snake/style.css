@@ -1,0 +1,138 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background: linear-gradient(135deg, #000428, #004e92);
+  color: #fff;
+  font-family: 'Arial', sans-serif;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+#ui {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px 8px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 1px;
+  animation: fadeIn 1s ease-in-out;
+}
+
+#ui span {
+  font-weight: bold;
+  color: #ff512f;
+  text-shadow: 0 0 10px rgba(255, 81, 47, 0.8);
+}
+
+#titleEl {
+  font-size: 16px;
+  font-weight: bold;
+  letter-spacing: 4px;
+  color: #fff;
+  animation: textGlow 1.5s infinite alternate;
+}
+
+#wrap {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  padding: 0 12px 12px;
+}
+
+#gc {
+  display: block;
+  background: #002a5e;
+  cursor: none;
+  width: 100%;
+  height: 100%;
+  animation: boardGlow 2s infinite alternate;
+  border: 1.5px solid rgba(255, 81, 47, 0.6);
+  box-shadow: 0 0 14px rgba(255, 81, 47, 0.3), inset 0 0 14px rgba(0, 0, 0, 0.4);
+}
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(0, 4, 40, 0.78);
+  animation: fadeIn 0.4s ease-in-out;
+  margin: 0 12px 12px;
+}
+
+#overlay.hidden {
+  display: none;
+}
+
+#msg {
+  font-size: 36px;
+  font-weight: bold;
+  color: #fff;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  animation: textGlow 1.5s infinite alternate;
+}
+
+#sub {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 1px;
+}
+
+#startBtn {
+  font-size: 16px;
+  padding: 13px 36px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #ff512f, #dd2476);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 6px 18px rgba(221, 36, 118, 0.5);
+  animation: buttonPulse 1.5s infinite, fadeIn 1s ease-in-out;
+  transition: transform 0.2s ease;
+}
+
+#startBtn:hover {
+  transform: translateY(-5px);
+}
+
+#pauseHint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  text-align: center;
+  padding: 6px 0 4px;
+  letter-spacing: 1px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes boardGlow {
+  0%   { box-shadow: 0 0 15px rgba(255, 255, 255, 0.15), inset 0 0 14px rgba(0,0,0,0.4); }
+  100% { box-shadow: 0 0 30px rgba(255, 81, 47, 0.4),   inset 0 0 14px rgba(0,0,0,0.4); }
+}
+
+@keyframes textGlow {
+  0%   { text-shadow: 0 2px 4px rgba(255, 81, 47, 0.5); }
+  100% { text-shadow: 0 4px 20px rgba(255, 255, 255, 0.9); }
+}
+
+@keyframes buttonPulse {
+  0%   { transform: scale(1);    opacity: 1; }
+  50%  { transform: scale(1.05); opacity: 0.9; }
+  100% { transform: scale(1);    opacity: 1; }
+}

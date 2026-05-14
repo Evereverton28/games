@@ -1,0 +1,244 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background: linear-gradient(135deg, #000428, #004e92);
+  color: #fff;
+  font-family: 'Arial', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── HUD ─────────────────────────────────────────────── */
+
+#ui {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px 6px;
+  font-size: 14px;
+  letter-spacing: 1px;
+  animation: fadeIn 0.8s ease-in-out;
+}
+
+#ui span {
+  font-weight: bold;
+  color: #ff512f;
+  text-shadow: 0 0 10px rgba(255, 81, 47, 0.8);
+}
+
+#titleEl {
+  font-size: 15px;
+  font-weight: bold;
+  letter-spacing: 4px;
+  animation: textGlow 1.5s infinite alternate;
+}
+
+/* ── Difficulty bar ──────────────────────────────────── */
+
+#diffBar {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0 10px;
+  animation: fadeIn 0.9s ease-in-out;
+}
+
+.diff {
+  padding: 6px 18px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border: 1px solid rgba(255, 81, 47, 0.5);
+  border-radius: 50px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.diff:hover,
+.diff.active {
+  background: linear-gradient(135deg, #ff512f, #dd2476);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(221, 36, 118, 0.45);
+}
+
+/* ── Board wrapper ───────────────────────────────────── */
+
+#boardWrap {
+  position: relative;
+  animation: fadeIn 1s ease-in-out;
+}
+
+#board {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  background: rgba(0, 10, 60, 0.55);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 81, 47, 0.3);
+  box-shadow: 0 0 30px rgba(255, 81, 47, 0.2);
+  animation: boardGlow 2s infinite alternate;
+}
+
+/* ── Cells ───────────────────────────────────────────── */
+
+.cell {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.1s ease, background 0.15s ease;
+  background: linear-gradient(135deg, #ff512f, #dd2476);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  animation: cellBounce 0.4s ease;
+}
+
+.cell:hover:not(.revealed):not(.exploded) {
+  transform: scale(1.12);
+  box-shadow: 0 0 12px rgba(255, 81, 47, 0.7);
+}
+
+.cell.revealed {
+  background: rgba(0, 30, 80, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: default;
+  box-shadow: none;
+}
+
+.cell.flagged {
+  background: linear-gradient(135deg, #dd2476, #ff512f);
+  box-shadow: 0 0 10px rgba(221, 36, 118, 0.6);
+}
+
+.cell.exploded {
+  background: linear-gradient(135deg, #ff0040, #ff512f);
+  box-shadow: 0 0 20px rgba(255, 0, 64, 0.9);
+  animation: explode 0.4s ease;
+}
+
+.cell.safe-reveal {
+  background: rgba(0, 78, 146, 0.5);
+}
+
+/* Number colors */
+.n1 { color: #7ec8ff; }
+.n2 { color: #7fff7e; }
+.n3 { color: #ff8c42; }
+.n4 { color: #dd2476; }
+.n5 { color: #ff512f; }
+.n6 { color: #fff056; }
+.n7 { color: #e0b0ff; }
+.n8 { color: #fff; }
+
+/* ── Overlay ─────────────────────────────────────────── */
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(0, 4, 40, 0.82);
+  animation: fadeIn 0.4s ease-in-out;
+}
+
+#overlay.hidden {
+  display: none;
+}
+
+#msg {
+  font-size: 28px;
+  font-weight: bold;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  animation: textGlow 1.5s infinite alternate;
+}
+
+#sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 1px;
+  text-align: center;
+  padding: 0 12px;
+}
+
+#startBtn {
+  font-size: 15px;
+  padding: 12px 32px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #ff512f, #dd2476);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 6px 18px rgba(221, 36, 118, 0.5);
+  animation: buttonPulse 1.5s infinite;
+  transition: transform 0.2s ease;
+}
+
+#startBtn:hover {
+  transform: translateY(-4px);
+}
+
+/* ── Hint bar ────────────────────────────────────────── */
+
+#hint {
+  margin-top: 10px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 1px;
+}
+
+/* ── Animations ──────────────────────────────────────── */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes boardGlow {
+  0%   { box-shadow: 0 0 20px rgba(255, 81, 47, 0.15); }
+  100% { box-shadow: 0 0 40px rgba(255, 81, 47, 0.4); }
+}
+
+@keyframes textGlow {
+  0%   { text-shadow: 0 2px 6px rgba(255, 81, 47, 0.5); }
+  100% { text-shadow: 0 4px 20px rgba(255, 255, 255, 0.9); }
+}
+
+@keyframes buttonPulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes cellBounce {
+  from { transform: scale(0.75); opacity: 0.6; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+@keyframes explode {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
