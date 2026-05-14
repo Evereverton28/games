@@ -1,242 +1,277 @@
-// Game variables
-const canvas = document.getElementById('gameCanvas');
+const canvas = document.getElementById('gc');
 const ctx = canvas.getContext('2d');
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+const overlay = document.getElementById('overlay');
+const msg = document.getElementById('msg');
+const sub = document.getElementById('sub');
+const startBtn = document.getElementById('startBtn');
+const scoreEl = document.getElementById('scoreEl');
+const highEl = document.getElementById('highEl');
+const livesEl = document.getElementById('livesEl');
+const pauseHint = document.getElementById('pauseHint');
 
-const wall = 10;
-const PADDLE_W = 0.2; // Width of the paddle as a percentage of canvas width
-const PADDLE_SPD = 10;
+const ROWS = 5;
+const COLS = 9;
+const WALL = 8;
+const PADDLE_W = 0.18;
+const PADDLE_SPD = 9;
 const BALL_SPD = 5;
-const GAME_LIVES = 3;
+const LIVES = 3;
+const BRICK_COLORS = ['#ff512f', '#dd2476', '#ff7f50', '#ff2d78', '#ff8c42'];
 
-let bricks = [];
-let ball, paddle;
-let score = 0, scoreHigh = 0, lives = GAME_LIVES;
-let gameOver = false, win = false;
-let isPaused = false; // Variable to track the pause state
+let ball, paddle, bricks = [];
+let score = 0, hi = 0, lives = LIVES;
+let state = 'idle'; // idle | playing | paused | over | win
+let keys = {};
+let raf;
 
-// Create the ball
-function createBall() {
-    ball = {
-        x: canvas.width / 2,
-        y: canvas.height - 30,
-        radius: 10,
-        dx: BALL_SPD * (Math.random() < 0.5 ? 1 : -1),
-        dy: -BALL_SPD,
-    };
-}
+// ─── Setup ───────────────────────────────────────────────
 
-// Create the paddle
-function createPaddle() {
-    paddle = {
-        x: (canvas.width - canvas.width * PADDLE_W) / 2,
-        y: canvas.height - 20,
-        width: canvas.width * PADDLE_W,
-        height: 10,
-        dx: 0,
-    };
-}
-
-// Create bricks
-function createBricks() {
-    const rowCount = 5;
-    const columnCount = 7;
-    const brickWidth = (canvas.width - wall * (columnCount + 1)) / columnCount;
-    const brickHeight = 20;
-
-    for (let c = 0; c < columnCount; c++) {
-        bricks[c] = [];
-        for (let r = 0; r < rowCount; r++) {
-            bricks[c][r] = { x: 0, y: 0, status: 1 };
-        }
-    }
-
-    for (let c = 0; c < columnCount; c++) {
-        for (let r = 0; r < rowCount; r++) {
-            bricks[c][r].x = c * (brickWidth + wall) + wall;
-            bricks[c][r].y = r * (brickHeight + wall) + wall;
-        }
-    }
-}
-
-// Function to resize the canvas
-function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    createPaddle(); // Recreate the paddle
-    createBricks(); // Recreate bricks
-}
-
-// Event listener for window resize
-window.addEventListener('resize', resizeCanvas);
-
-// Draw the ball
-function drawBall() {
-    ctx.beginPath();
-    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-    ctx.fillStyle = 'white';
-    ctx.fill();
-    ctx.closePath();
-}
-
-// Draw the paddle
-function drawPaddle() {
-    ctx.beginPath();
-    ctx.rect(paddle.x, paddle.y, paddle.width, paddle.height);
-    ctx.fillStyle = 'white';
-    ctx.fill();
-    ctx.closePath();
-}
-
-// Draw bricks
-function drawBricks() {
-    for (let c = 0; c < bricks.length; c++) {
-        for (let r = 0; r < bricks[c].length; r++) {
-            if (bricks[c][r].status === 1) {
-                const brickX = bricks[c][r].x;
-                const brickY = bricks[c][r].y;
-                const brickWidth = (canvas.width - wall * (bricks.length + 1)) / bricks.length;
-                const brickHeight = 20;
-                ctx.beginPath();
-                ctx.rect(brickX, brickY, brickWidth, brickHeight);
-                ctx.fillStyle = 'white';
-                ctx.fill();
-                ctx.closePath();
-            }
-        }
-    }
-}
-
-// Collision detection
-function collisionDetection() {
-    for (let c = 0; c < bricks.length; c++) {
-        for (let r = 0; r < bricks[c].length; r++) {
-            const b = bricks[c][r];
-            if (b.status === 1) {
-                if (ball.x > b.x && ball.x < b.x + (canvas.width - wall * (bricks.length + 1)) / bricks.length && ball.y > b.y && ball.y < b.y + 20) {
-                    ball.dy = -ball.dy;
-                    b.status = 0;
-                    score++;
-                    if (score > scoreHigh) scoreHigh = score;
-                    if (score === bricks.length * bricks[0].length) {
-                        win = true;
-                    }
-                }
-            }
-        }
-    }
-}
-
-// Update game state
-function update() {
-    if (gameOver || win || isPaused) return; // Stop updating if game is over or paused
-
-    ball.x += ball.dx;
-    ball.y += ball.dy;
-
-    // Ball collision with walls
-    if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) {
-        ball.dx = -ball.dx;
-    }
-    if (ball.y - ball.radius < 0) {
-        ball.dy = -ball.dy;
-    }
-    if (ball.y + ball.radius > canvas.height) {
-        lives--;
-        if (!lives) {
-            gameOver = true;
-        } else {
-            createBall();
-        }
-    }
-
-    // Paddle collision
-    if (ball.y + ball.radius > paddle.y && ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
-        ball.dy = -ball.dy;
-    }
-
-    // Move paddle
-    paddle.x += paddle.dx;
-
-    // Prevent paddle from going out of bounds
-    if (paddle.x < 0) {
-        paddle.x = 0;
-    } else if (paddle.x + paddle.width > canvas.width) {
-        paddle.x = canvas.width - paddle.width;
-    }
-
-    collisionDetection();
-}
-
-// Draw game elements
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawBricks();
-    drawBall();
-    drawPaddle();
-
-    // Draw score and lives
-    ctx.font = '16px Arial';
-    ctx.fillStyle = 'white';
-    ctx.fillText(`Score: ${score}`, 8, 20);
-    ctx.fillText(`Lives: ${lives}`, canvas.width - 65, 20);
-
-    if (gameOver) {
-        ctx.fillStyle = 'red';
-        ctx.font = '30px Arial';
-        ctx.fillText('Game Over!', canvas.width / 2 - 70, canvas.height / 2);
-    }
-
-    if (win) {
-        ctx.fillStyle = 'green';
-        ctx.font = '30px Arial';
-        ctx.fillText('You Win!', canvas.width / 2 - 60, canvas.height / 2);
-    }
-}
-
-// Control paddle movement and pause toggle
-window.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowRight') {
-        paddle.dx = PADDLE_SPD;
-    } else if (e.key === 'ArrowLeft') {
-        paddle.dx = -PADDLE_SPD;
-    } else if (e.key === 'p' || e.key === 'P') {
-        togglePause(); // Toggle pause on 'P' key press
-    }
-});
-
-window.addEventListener('keyup', (e) => {
-    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-        paddle.dx = 0;
-    }
-});
-
-// Function to toggle pause
-function togglePause() {
-    isPaused = !isPaused;
-}
-
-// Main game loop
-function main() {
-    if (!gameOver && !win && !isPaused) {
-        update();
-        draw();
-    }
-    requestAnimationFrame(main);
-}
-
-// Initialize the game
-function newGame() {
-    score = 0;
-    lives = GAME_LIVES;
-    gameOver = false;
-    win = false;
-    createBricks();
-    createBall();
+function resize() {
+  const w = canvas.parentElement.offsetWidth || 480;
+  canvas.width = w;
+  canvas.height = Math.min(Math.round(w * 0.65), 480);
+  if (state === 'playing' || state === 'paused') {
     createPaddle();
+    createBricks();
+    if (ball) { ball.x = canvas.width / 2; ball.y = canvas.height - 50; }
+  }
 }
 
-// Start a new game
-newGame();
-main();
+function createBall() {
+  ball = {
+    x: canvas.width / 2,
+    y: canvas.height - 50,
+    r: 7,
+    dx: BALL_SPD * (Math.random() < 0.5 ? 1 : -1),
+    dy: -BALL_SPD,
+  };
+}
+
+function createPaddle() {
+  const pw = canvas.width * PADDLE_W;
+  paddle = { x: (canvas.width - pw) / 2, y: canvas.height - 18, w: pw, h: 9, dx: 0 };
+}
+
+function createBricks() {
+  bricks = [];
+  const bw = (canvas.width - WALL * (COLS + 1)) / COLS;
+  const bh = 16;
+  for (let c = 0; c < COLS; c++) {
+    bricks[c] = [];
+    for (let r = 0; r < ROWS; r++) {
+      bricks[c][r] = {
+        x: c * (bw + WALL) + WALL,
+        y: r * (bh + WALL) + WALL + 30,
+        w: bw,
+        h: bh,
+        alive: true,
+        color: BRICK_COLORS[r % BRICK_COLORS.length],
+      };
+    }
+  }
+}
+
+// ─── Drawing ─────────────────────────────────────────────
+
+function drawBricks() {
+  for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < ROWS; r++) {
+      const b = bricks[c][r];
+      if (!b.alive) continue;
+      ctx.beginPath();
+      ctx.roundRect(b.x, b.y, b.w, b.h, 3);
+      ctx.fillStyle = b.color;
+      ctx.fill();
+    }
+  }
+}
+
+function drawBall() {
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = 'rgba(255,81,47,0.8)';
+  ctx.shadowBlur = 10;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+}
+
+function drawPaddle() {
+  ctx.beginPath();
+  ctx.roundRect(paddle.x, paddle.y, paddle.w, paddle.h, 5);
+  const grad = ctx.createLinearGradient(paddle.x, 0, paddle.x + paddle.w, 0);
+  grad.addColorStop(0, '#ff512f');
+  grad.addColorStop(1, '#dd2476');
+  ctx.fillStyle = grad;
+  ctx.shadowColor = 'rgba(221,36,118,0.7)';
+  ctx.shadowBlur = 12;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawBricks();
+  drawBall();
+  drawPaddle();
+
+  if (state === 'paused') {
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#fff';
+    ctx.font = '500 18px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Paused', canvas.width / 2, canvas.height / 2);
+    ctx.textAlign = 'left';
+  }
+}
+
+// ─── Game logic ───────────────────────────────────────────
+
+function update() {
+  ball.x += ball.dx;
+  ball.y += ball.dy;
+
+  // Wall collisions
+  if (ball.x + ball.r > canvas.width) { ball.x = canvas.width - ball.r; ball.dx = -Math.abs(ball.dx); }
+  if (ball.x - ball.r < 0) { ball.x = ball.r; ball.dx = Math.abs(ball.dx); }
+  if (ball.y - ball.r < 0) { ball.y = ball.r; ball.dy = Math.abs(ball.dy); }
+
+  // Ball out of bounds (lose a life)
+  if (ball.y - ball.r > canvas.height) {
+    lives--;
+    updateHUD();
+    if (lives <= 0) {
+      state = 'over';
+      showOverlay('Game Over', 'Final score: ' + score, 'Play again');
+    } else {
+      createBall();
+    }
+    return;
+  }
+
+  // Paddle collision — angle based on hit position
+  if (
+    ball.y + ball.r > paddle.y &&
+    ball.y - ball.r < paddle.y + paddle.h &&
+    ball.x > paddle.x &&
+    ball.x < paddle.x + paddle.w
+  ) {
+    const rel = (ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+    ball.dx = BALL_SPD * rel * 1.4;
+    ball.dy = -Math.abs(ball.dy);
+    ball.y = paddle.y - ball.r;
+  }
+
+  // Brick collisions
+  let remaining = 0;
+  for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < ROWS; r++) {
+      const b = bricks[c][r];
+      if (!b.alive) continue;
+      remaining++;
+      if (
+        ball.x + ball.r > b.x && ball.x - ball.r < b.x + b.w &&
+        ball.y + ball.r > b.y && ball.y - ball.r < b.y + b.h
+      ) {
+        const overlapL = ball.x + ball.r - b.x;
+        const overlapR = b.x + b.w - (ball.x - ball.r);
+        const overlapT = ball.y + ball.r - b.y;
+        const overlapB = b.y + b.h - (ball.y - ball.r);
+        const minH = Math.min(overlapL, overlapR);
+        const minV = Math.min(overlapT, overlapB);
+        if (minH < minV) ball.dx = -ball.dx; else ball.dy = -ball.dy;
+        b.alive = false;
+        score++;
+        if (score > hi) hi = score;
+        updateHUD();
+      }
+    }
+  }
+
+  if (remaining === 0) {
+    state = 'win';
+    showOverlay('You Win!', 'Score: ' + score + ' · Best: ' + hi, 'Play again');
+  }
+
+  // Move paddle via keyboard
+  if (keys['ArrowRight']) paddle.dx = PADDLE_SPD;
+  else if (keys['ArrowLeft']) paddle.dx = -PADDLE_SPD;
+  else paddle.dx = 0;
+
+  paddle.x += paddle.dx;
+  paddle.x = Math.max(0, Math.min(canvas.width - paddle.w, paddle.x));
+}
+
+// ─── Loop ────────────────────────────────────────────────
+
+function loop() {
+  if (state === 'playing') update();
+  draw();
+  raf = requestAnimationFrame(loop);
+}
+
+// ─── HUD & Overlay ───────────────────────────────────────
+
+function updateHUD() {
+  scoreEl.textContent = score;
+  highEl.textContent = hi;
+  livesEl.textContent = '❤️'.repeat(Math.max(0, lives));
+}
+
+function showOverlay(m, s, btn) {
+  msg.textContent = m;
+  sub.textContent = s;
+  startBtn.textContent = btn + ' ▶';
+  overlay.classList.remove('hidden');
+  pauseHint.textContent = '';
+}
+
+function startGame() {
+  score = 0;
+  lives = LIVES;
+  createBricks();
+  createBall();
+  createPaddle();
+  updateHUD();
+  overlay.classList.add('hidden');
+  pauseHint.textContent = 'P to pause · Arrow keys or mouse to move';
+  state = 'playing';
+  if (!raf) loop();
+}
+
+// ─── Input ───────────────────────────────────────────────
+
+window.addEventListener('keydown', (e) => {
+  keys[e.key] = true;
+  if ((e.key === 'p' || e.key === 'P') && (state === 'playing' || state === 'paused')) {
+    state = state === 'paused' ? 'playing' : 'paused';
+    pauseHint.textContent = state === 'paused'
+      ? 'Paused — press P to resume'
+      : 'P to pause · Arrow keys or mouse to move';
+  }
+  if (['ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
+});
+
+window.addEventListener('keyup', (e) => { keys[e.key] = false; });
+
+canvas.addEventListener('mousemove', (e) => {
+  if (state !== 'playing') return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  paddle.x = Math.max(0, Math.min(canvas.width - paddle.w, mx - paddle.w / 2));
+});
+
+canvas.addEventListener('touchmove', (e) => {
+  if (state !== 'playing') return;
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const tx = e.touches[0].clientX - rect.left;
+  paddle.x = Math.max(0, Math.min(canvas.width - paddle.w, tx - paddle.w / 2));
+}, { passive: false });
+
+window.addEventListener('resize', resize);
+
+// ─── Init ────────────────────────────────────────────────
+resize();
+loop();

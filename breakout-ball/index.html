@@ -1,13 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Breakout Game</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breakout Game</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
-    <script src="script.js"></script>
+  <div id="ui">
+    <div>Score: <span id="scoreEl">0</span></div>
+    <div>Best: <span id="highEl">0</span></div>
+    <div>Lives: <span id="livesEl">❤️❤️❤️</span></div>
+  </div>
+  <div id="wrap">
+    <canvas id="gc"></canvas>
+    <div id="overlay">
+      <div id="msg">Breakout</div>
+      <div id="sub">Arrow keys or mouse to move · P to pause</div>
+      <button id="startBtn" onclick="startGame()">Start game ▶</button>
+    </div>
+  </div>
+  <div id="pauseHint"></div>
+  <script src="script.js"></script>
 </body>
 </html>
