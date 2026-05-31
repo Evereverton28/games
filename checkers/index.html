@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkers</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- SPLASH -->
+  <div id="splash" class="splash-overlay">
+    <div class="splash-card">
+      <div class="splash-logo">⬤</div>
+      <h1 class="splash-title">Checkers</h1>
+      <p class="splash-subtitle">Choose your opponent</p>
+      <div class="mode-options">
+        <button class="mode-btn" data-mode="human">
+          <span class="mode-icon">⬤ ⬤</span>
+          <span class="mode-label">Two Players</span>
+          <span class="mode-desc">Pass &amp; play locally</span>
+        </button>
+        <button class="mode-btn" data-mode="ai">
+          <span class="mode-icon">⬤ ⚙</span>
+          <span class="mode-label">vs Computer</span>
+          <span class="mode-desc">Play against AI</span>
+        </button>
+      </div>
+
+      <div id="ai-options" class="ai-options hidden">
+        <p class="ai-options-label">You play as</p>
+        <div class="color-options">
+          <button class="color-btn active" data-color="red">● Red (first)</button>
+          <button class="color-btn" data-color="black">● Black</button>
+        </div>
+        <p class="ai-options-label" style="margin-top:1.2rem;">Difficulty</p>
+        <div class="diff-options">
+          <button class="diff-btn active" data-depth="2">Easy</button>
+          <button class="diff-btn" data-depth="4">Medium</button>
+          <button class="diff-btn" data-depth="6">Hard</button>
+        </div>
+      </div>
+
+      <button id="start-btn" class="start-btn">Start Game</button>
+    </div>
+  </div>
+
+  <!-- GAME -->
+  <div id="app" class="app hidden">
+
+    <!-- Score card — Red -->
+    <aside class="score-panel score-panel-red">
+      <div class="score-card" id="score-card-red">
+        <div class="score-player-label">Red</div>
+        <div class="score-number" id="score-red">12</div>
+        <div class="score-captured-label">pieces</div>
+        <div class="captured-tray" id="tray-red"></div>
+      </div>
+      <div class="panel-section panel-grow">
+        <h3 class="panel-heading">History</h3>
+        <div class="move-history" id="move-history"></div>
+      </div>
+      <div class="panel-section">
+        <button id="undo-btn" class="action-btn">↩ Undo</button>
+        <button id="new-game-btn" class="action-btn secondary">⟳ New Game</button>
+      </div>
+    </aside>
+
+    <!-- Board -->
+    <main class="board-area">
+      <div class="turn-indicator" id="turn-indicator">Red's Turn</div>
+      <div class="board-wrap">
+        <div id="board" class="board"></div>
+      </div>
+      <div id="status-bar" class="status-bar"></div>
+    </main>
+
+    <!-- Score card — Black -->
+    <aside class="score-panel score-panel-black">
+      <div class="score-card" id="score-card-black">
+        <div class="score-player-label">Black</div>
+        <div class="score-number" id="score-black">12</div>
+        <div class="score-captured-label">pieces</div>
+        <div class="captured-tray" id="tray-black"></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- GAME OVER MODAL -->
+  <div id="modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-icon" id="modal-icon">⬤</div>
+      <h2 id="modal-title">Game Over</h2>
+      <p id="modal-body"></p>
+      <button id="modal-new-btn" class="start-btn">New Game</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

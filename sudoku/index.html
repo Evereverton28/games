@@ -4,18 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sudoku</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <div id="ui">
     <div id="ui-left">
-      <div class="ui-label">MISTAKES</div>
+      <div class="ui-label">Mistakes</div>
       <div id="mistakesEl">0 / 3</div>
     </div>
     <div id="titleEl">SUDOKU</div>
     <div id="ui-right">
-      <div class="ui-label">TIME</div>
+      <div class="ui-label">Time</div>
       <div id="timeEl">00:00</div>
     </div>
   </div>
@@ -37,11 +39,11 @@
 
   <div id="numpad"></div>
   <div id="actions">
-    <button class="action-btn" id="eraseBtn"><span>✕</span> Erase</button>
-    <button class="action-btn" id="noteBtn"><span>✎</span> Notes</button>
-    <button class="action-btn" id="hintBtn"><span>💡</span> Hint</button>
+    <button class="action-btn" id="eraseBtn">✕ Erase</button>
+    <button class="action-btn" id="noteBtn">✎ Notes</button>
+    <button class="action-btn" id="hintBtn">💡 Hint (3)</button>
   </div>
-  <div id="hint">Click a cell then tap a number · Mistakes allowed: 3</div>
+  <div id="hint">Click a cell · tap a number · N toggles notes</div>
 
   <script src="script.js"></script>
 </body>

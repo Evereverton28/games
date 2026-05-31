@@ -4,23 +4,33 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Snake</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="ui">
-    <div>Score: <span id="scoreEl">0</span></div>
+    <div><div class="hud-label">Score</div><div class="hud-val" id="scoreEl">0</div></div>
     <div id="titleEl">SNAKE</div>
-    <div>Best: <span id="highEl">0</span></div>
+    <div style="text-align:right"><div class="hud-label">Best</div><div class="hud-val" id="highEl">0</div></div>
   </div>
   <div id="wrap">
     <canvas id="gc"></canvas>
     <div id="overlay">
       <div id="msg">SNAKE</div>
-      <div id="sub">Arrow keys or WASD to move</div>
-      <button id="startBtn" onclick="startGame()">Start Game ▶</button>
+      <div id="sub">Arrow keys · WASD · or D-pad below</div>
+      <button id="startBtn">Start Game ▶</button>
     </div>
   </div>
   <div id="pauseHint"></div>
+  <div id="dpad">
+    <div class="dpad-row"><button class="dpad-btn" id="btn-up" aria-label="Up">▲</button></div>
+    <div class="dpad-row">
+      <button class="dpad-btn" id="btn-left" aria-label="Left">◀</button>
+      <button class="dpad-btn" id="btn-down" aria-label="Down">▼</button>
+      <button class="dpad-btn" id="btn-right" aria-label="Right">▶</button>
+    </div>
+  </div>
   <script src="script.js"></script>
 </body>
 </html>

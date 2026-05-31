@@ -1,3 +1,13 @@
+:root {
+  --bg:      #0a0a0f;
+  --surface: #13131a;
+  --border:  #1e1e2e;
+  --text:    #e2e8f0;
+  --muted:   #64748b;
+  --x-color: #f97316;
+  --o-color: #38bdf8;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -5,134 +15,193 @@
 }
 
 html, body {
-  background: linear-gradient(135deg, #000428, #004e92);
-  color: #fff;
-  font-family: 'Arial', sans-serif;
-  overflow: hidden;
   height: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(249,115,22,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(56,189,248,0.06) 0%, transparent 60%);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
 }
 
+/* ── HUD ── */
 #ui {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 16px 8px;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
-  letter-spacing: 1px;
-  animation: fadeIn 1s ease-in-out;
+  padding: 10px 16px 6px;
+  flex-shrink: 0;
 }
 
-#ui span {
-  font-weight: bold;
-  color: #ff512f;
-  text-shadow: 0 0 10px rgba(255, 81, 47, 0.8);
+.hud-label {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.hud-val {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 3px;
+  color: var(--x-color);
 }
 
 #titleEl {
-  font-size: 16px;
-  font-weight: bold;
-  letter-spacing: 4px;
-  color: #fff;
-  animation: textGlow 1.5s infinite alternate;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  letter-spacing: 6px;
+  background: linear-gradient(135deg, var(--x-color), var(--o-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
+/* ── Canvas wrap ── */
 #wrap {
   position: relative;
-  width: 100%;
   flex: 1;
-  padding: 0 12px 12px;
+  padding: 0 12px 8px;
+  min-height: 0;
 }
 
 #gc {
   display: block;
-  background: #002a5e;
-  cursor: none;
   width: 100%;
   height: 100%;
-  animation: boardGlow 2s infinite alternate;
-  border: 1.5px solid rgba(255, 81, 47, 0.6);
-  box-shadow: 0 0 14px rgba(255, 81, 47, 0.3), inset 0 0 14px rgba(0, 0, 0, 0.4);
+  background: #08080f;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 1px rgba(56,189,248,0.06),
+    0 0 32px rgba(56,189,248,0.06);
+  transition: box-shadow 0.3s;
 }
 
+#gc:hover {
+  box-shadow:
+    0 0 0 1px rgba(56,189,248,0.12),
+    0 0 40px rgba(56,189,248,0.10);
+}
+
+/* ── Overlay ── */
 #overlay {
   position: absolute;
-  inset: 0;
+  inset: 0 12px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-  background: rgba(0, 4, 40, 0.78);
-  animation: fadeIn 0.4s ease-in-out;
-  margin: 0 12px 12px;
+  gap: 12px;
+  background: rgba(10,10,15,0.82);
+  border-radius: 10px;
+  animation: fadeUp 0.4s ease both;
 }
 
-#overlay.hidden {
-  display: none;
-}
+#overlay.hidden { display: none; }
 
 #msg {
-  font-size: 36px;
-  font-weight: bold;
-  color: #fff;
-  letter-spacing: 6px;
-  text-transform: uppercase;
-  animation: textGlow 1.5s infinite alternate;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 42px;
+  letter-spacing: 8px;
+  background: linear-gradient(135deg, var(--x-color), var(--o-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 #sub {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
-  letter-spacing: 1px;
-}
-
-#startBtn {
-  font-size: 16px;
-  padding: 13px 36px;
-  cursor: pointer;
-  background: linear-gradient(135deg, #ff512f, #dd2476);
-  color: #fff;
-  border: none;
-  border-radius: 50px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  box-shadow: 0 6px 18px rgba(221, 36, 118, 0.5);
-  animation: buttonPulse 1.5s infinite, fadeIn 1s ease-in-out;
-  transition: transform 0.2s ease;
-}
-
-#startBtn:hover {
-  transform: translateY(-5px);
-}
-
-#pauseHint {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.35);
-  text-align: center;
-  padding: 6px 0 4px;
+  color: var(--muted);
   letter-spacing: 1px;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
+/* ── Button ── */
+#startBtn {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 15px;
+  letter-spacing: 3px;
+  padding: 11px 32px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+  animation: fadeUp 0.4s ease 0.15s both;
+}
+
+#startBtn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(249,115,22,0.10), rgba(56,189,248,0.10));
+  opacity: 0;
+  transition: opacity 0.2s;
+  border-radius: inherit;
+}
+
+#startBtn:hover::before  { opacity: 1; }
+#startBtn:hover          { border-color: var(--muted); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+#startBtn:active         { transform: translateY(0); box-shadow: none; }
+#startBtn:focus-visible  { outline: 2px solid var(--o-color); outline-offset: 2px; }
+
+/* ── Pause hint ── */
+#pauseHint {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  padding: 4px 0 4px;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+
+/* ── D-pad ── */
+#dpad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 0 8px;
+  flex-shrink: 0;
+}
+
+.dpad-row {
+  display: flex;
+  gap: 2px;
+}
+
+.dpad-btn {
+  width: 34px;
+  height: 34px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s, transform 0.1s, border-color 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dpad-btn:active,
+.dpad-btn.pressed {
+  background: rgba(249,115,22,0.15);
+  color: var(--x-color);
+  border-color: rgba(249,115,22,0.4);
+  transform: scale(0.92);
+}
+
+/* ── Animations ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes boardGlow {
-  0%   { box-shadow: 0 0 15px rgba(255, 255, 255, 0.15), inset 0 0 14px rgba(0,0,0,0.4); }
-  100% { box-shadow: 0 0 30px rgba(255, 81, 47, 0.4),   inset 0 0 14px rgba(0,0,0,0.4); }
-}
-
-@keyframes textGlow {
-  0%   { text-shadow: 0 2px 4px rgba(255, 81, 47, 0.5); }
-  100% { text-shadow: 0 4px 20px rgba(255, 255, 255, 0.9); }
-}
-
-@keyframes buttonPulse {
-  0%   { transform: scale(1);    opacity: 1; }
-  50%  { transform: scale(1.05); opacity: 0.9; }
-  100% { transform: scale(1);    opacity: 1; }
 }

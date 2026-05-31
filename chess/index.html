@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chess</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- SPLASH / SETUP SCREEN -->
+  <div id="splash" class="splash-overlay">
+    <div class="splash-card">
+      <div class="splash-logo">♛</div>
+      <h1 class="splash-title">CHESS</h1>
+      <p class="splash-subtitle">Choose your opponent</p>
+      <div class="mode-options">
+        <button class="mode-btn" data-mode="human">
+          <span class="mode-icon">♟ ♟</span>
+          <span class="mode-label">Two Players</span>
+          <span class="mode-desc">Pass &amp; play locally</span>
+        </button>
+        <button class="mode-btn" data-mode="ai">
+          <span class="mode-icon">♟ ⚙</span>
+          <span class="mode-label">vs Computer</span>
+          <span class="mode-desc">Play against AI</span>
+        </button>
+      </div>
+      <div id="ai-options" class="ai-options hidden">
+        <p class="ai-options-label">You play as</p>
+        <div class="color-options">
+          <button class="color-btn active" data-color="white">♔ White</button>
+          <button class="color-btn" data-color="black">♚ Black</button>
+        </div>
+        <p class="ai-options-label" style="margin-top:1.2rem;">Difficulty</p>
+        <div class="diff-options">
+          <button class="diff-btn active" data-depth="1">Easy</button>
+          <button class="diff-btn" data-depth="2">Medium</button>
+          <button class="diff-btn" data-depth="3">Hard</button>
+        </div>
+      </div>
+      <button id="start-btn" class="start-btn">Start Game</button>
+    </div>
+  </div>
+
+  <!-- MAIN GAME LAYOUT -->
+  <div id="app" class="app hidden">
+
+    <!-- LEFT PANEL -->
+    <aside class="panel panel-left">
+      <div class="panel-section">
+        <h3 class="panel-heading">Captured</h3>
+        <div class="captured-row" id="captured-black">
+          <span class="captured-label">Black took</span>
+          <div class="captured-pieces" id="black-captures"></div>
+        </div>
+        <div class="captured-row" id="captured-white">
+          <span class="captured-label">White took</span>
+          <div class="captured-pieces" id="white-captures"></div>
+        </div>
+      </div>
+
+      <div class="panel-section panel-grow">
+        <h3 class="panel-heading">Move History</h3>
+        <div class="move-history" id="move-history"></div>
+      </div>
+
+      <div class="panel-section">
+        <button id="undo-btn" class="action-btn">↩ Undo</button>
+        <button id="new-game-btn" class="action-btn secondary">⟳ New Game</button>
+      </div>
+    </aside>
+
+    <!-- CENTER: BOARD -->
+    <main class="board-area">
+      <div class="turn-indicator" id="turn-indicator">White's Turn</div>
+      <div class="board-wrap">
+        <div class="board-coords-col" id="rank-labels"></div>
+        <div>
+          <div id="board" class="board"></div>
+          <div class="board-coords-row" id="file-labels"></div>
+        </div>
+      </div>
+      <div id="status-bar" class="status-bar"></div>
+    </main>
+
+  </div>
+
+  <!-- GAME OVER MODAL -->
+  <div id="modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-icon" id="modal-icon">♛</div>
+      <h2 id="modal-title">Game Over</h2>
+      <p id="modal-body"></p>
+      <button id="modal-new-btn" class="start-btn">New Game</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

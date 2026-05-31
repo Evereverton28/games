@@ -3,13 +3,44 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pong Game</title>
+  <title>Pong</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <canvas id="pongCanvas" width="800" height="400"></canvas>
-  <button id="startButton">Start</button> <!-- Start button -->
-  <button id="pauseButton">Pause</button> <!-- Pause button -->
+  <div class="container">
+    <h1>PONG</h1>
+
+    <canvas id="pongCanvas" width="800" height="420"></canvas>
+
+    <div class="controls-row">
+      <button id="startButton">&#9654; Start</button>
+      <button id="pauseButton" style="display:none;">&#9646;&#9646; Pause</button>
+      <label class="toggle-label">
+        <input type="checkbox" id="soundToggle" checked> Sound
+      </label>
+      <label class="toggle-label">
+        First to
+        <select id="winScore">
+          <option>5</option>
+          <option selected>7</option>
+          <option>10</option>
+          <option>15</option>
+        </select>
+        wins
+      </label>
+    </div>
+
+    <p class="hint">
+      Left: <kbd>W</kbd> / <kbd>S</kbd> &nbsp;|&nbsp; Right: <kbd>↑</kbd> / <kbd>↓</kbd>
+    </p>
+
+    <div id="winBanner" class="win-banner" style="display:none;"></div>
+    <div id="matchHistory" class="match-history"></div>
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>

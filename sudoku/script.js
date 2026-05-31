@@ -13,12 +13,12 @@ const hintBtn    = document.getElementById('hintBtn');
 
 // ─── State ────────────────────────────────────────────
 const MAX_MISTAKES = 3;
-let solution   = [];   // 9x9 solved grid
-let puzzle     = [];   // 9x9 puzzle (0 = empty)
-let userGrid   = [];   // 9x9 user entries (0 = empty)
-let notesGrid  = [];   // 9x9 arrays of sets
-let given      = [];   // 9x9 booleans
-let selected   = null; // { r, c }
+let solution   = [];
+let puzzle     = [];
+let userGrid   = [];
+let notesGrid  = [];
+let given      = [];
+let selected   = null;
 let mistakes   = 0;
 let hintsLeft  = 3;
 let noteMode   = false;
@@ -26,8 +26,6 @@ let difficulty = 'easy';
 let timerInterval, elapsed, gameActive;
 
 const REMOVE_COUNT = { easy: 36, medium: 46, hard: 56 };
-
-// ─── Puzzle generation ────────────────────────────────
 
 function generateSolution() {
   const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -86,8 +84,6 @@ function createPuzzle(sol, removeCount) {
   return puz;
 }
 
-// ─── New game ─────────────────────────────────────────
-
 function newGame() {
   clearInterval(timerInterval);
   elapsed   = 0;
@@ -109,6 +105,7 @@ function newGame() {
   mistakesEl.textContent = `0 / ${MAX_MISTAKES}`;
   timeEl.textContent     = '00:00';
   hintBtn.textContent    = `💡 Hint (${hintsLeft})`;
+  hintBtn.classList.remove('exhausted');
   noteBtn.classList.remove('active');
 
   overlay.classList.add('hidden');
@@ -116,8 +113,6 @@ function newGame() {
   buildNumpad();
   startTimer();
 }
-
-// ─── Render ───────────────────────────────────────────
 
 function renderBoard() {
   boardEl.innerHTML = '';
@@ -128,7 +123,6 @@ function renderBoard() {
       cell.dataset.r = r;
       cell.dataset.c = c;
 
-      // Thick box borders
       if (c === 2 || c === 5) cell.classList.add('box-right');
       if (r === 2 || r === 5) cell.classList.add('box-bottom');
 
@@ -156,13 +150,11 @@ function updateCellEl(r, c) {
   const el = getCellEl(r, c);
   if (!el) return;
 
-  // Preserve base classes
   const classes = ['cell'];
   if (c === 2 || c === 5) classes.push('box-right');
   if (r === 2 || r === 5) classes.push('box-bottom');
   if (given[r][c])         classes.push('given');
 
-  // Selection / highlight
   if (selected) {
     const { r: sr, c: sc } = selected;
     if (r === sr && c === sc) {
@@ -170,7 +162,6 @@ function updateCellEl(r, c) {
     } else if (r === sr || c === sc || (Math.floor(r/3) === Math.floor(sr/3) && Math.floor(c/3) === Math.floor(sc/3))) {
       classes.push('highlight');
     }
-    // Same number highlight
     const selVal = userGrid[sr][sc];
     if (selVal !== 0 && userGrid[r][c] === selVal) {
       classes.push('same-num');
@@ -213,14 +204,10 @@ function getCellEl(r, c) {
   return boardEl.children[r * 9 + c];
 }
 
-// ─── Selection ────────────────────────────────────────
-
 function selectCell(r, c) {
   selected = { r, c };
   refreshBoard();
 }
-
-// ─── Number input ─────────────────────────────────────
 
 function inputNumber(n) {
   if (!selected || !gameActive) return;
@@ -228,7 +215,6 @@ function inputNumber(n) {
   if (given[r][c]) return;
 
   if (noteMode) {
-    // Toggle note
     const notes = notesGrid[r][c];
     if (notes.has(n)) notes.delete(n); else notes.add(n);
     userGrid[r][c] = 0;
@@ -236,7 +222,6 @@ function inputNumber(n) {
     return;
   }
 
-  // Clear notes when placing a number
   notesGrid[r][c].clear();
   userGrid[r][c] = n;
 
@@ -244,7 +229,6 @@ function inputNumber(n) {
     mistakes++;
     mistakesEl.textContent = `${mistakes} / ${MAX_MISTAKES}`;
     updateCellEl(r, c);
-    // Shake animation
     const el = getCellEl(r, c);
     el.style.animation = 'none';
     requestAnimationFrame(() => { el.style.animation = ''; el.classList.add('user-wrong'); });
@@ -252,10 +236,8 @@ function inputNumber(n) {
       setTimeout(() => endGame(false), 400);
     }
   } else {
-    // Remove this number from notes in same row/col/box
     clearNoteInPeers(r, c, n);
     updateCellEl(r, c);
-    // Flash correct
     const el = getCellEl(r, c);
     el.classList.add('complete-flash');
     setTimeout(() => el.classList.remove('complete-flash'), 500);
@@ -289,7 +271,6 @@ function eraseCell() {
 
 function giveHint() {
   if (!gameActive || hintsLeft <= 0) return;
-  // Find an empty or wrong cell
   const empties = [];
   for (let r = 0; r < 9; r++) {
     for (let c = 0; c < 9; c++) {
@@ -300,7 +281,6 @@ function giveHint() {
   }
   if (empties.length === 0) return;
 
-  // Prefer selected cell
   let target = empties[0];
   if (selected && !given[selected.r][selected.c] && userGrid[selected.r][selected.c] !== solution[selected.r][selected.c]) {
     target = selected;
@@ -318,15 +298,12 @@ function giveHint() {
   checkWin();
 }
 
-// ─── Numpad ───────────────────────────────────────────
-
 function buildNumpad() {
   numpad.innerHTML = '';
   for (let n = 1; n <= 9; n++) {
     const btn = document.createElement('button');
     btn.className = 'num-btn';
     btn.textContent = n;
-    // Count how many times this number is correctly placed
     let count = 0;
     for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
       if (userGrid[r][c] === n && solution[r][c] === n) count++;
@@ -336,8 +313,6 @@ function buildNumpad() {
     numpad.appendChild(btn);
   }
 }
-
-// ─── Win / lose ───────────────────────────────────────
 
 function checkWin() {
   for (let r = 0; r < 9; r++) {
@@ -364,8 +339,6 @@ function endGame(won) {
   }, won ? 400 : 500);
 }
 
-// ─── Timer ────────────────────────────────────────────
-
 function startTimer() {
   timerInterval = setInterval(() => {
     elapsed++;
@@ -378,8 +351,6 @@ function formatTime(s) {
   const sec = (s % 60).toString().padStart(2, '0');
   return `${m}:${sec}`;
 }
-
-// ─── Keyboard input ───────────────────────────────────
 
 window.addEventListener('keydown', (e) => {
   if (!gameActive) return;
@@ -399,7 +370,6 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
-  // Arrow key navigation
   if (!selected) return;
   const moves = { ArrowUp: [-1,0], ArrowDown: [1,0], ArrowLeft: [0,-1], ArrowRight: [0,1] };
   const move = moves[e.key];
@@ -411,8 +381,6 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// ─── Action buttons ───────────────────────────────────
-
 eraseBtn.addEventListener('click', eraseCell);
 noteBtn.addEventListener('click', toggleNoteMode);
 hintBtn.addEventListener('click', giveHint);
@@ -421,8 +389,6 @@ function toggleNoteMode() {
   noteMode = !noteMode;
   noteBtn.classList.toggle('active', noteMode);
 }
-
-// ─── Difficulty buttons ───────────────────────────────
 
 document.querySelectorAll('.diff').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -435,8 +401,6 @@ document.querySelectorAll('.diff').forEach(btn => {
 
 startBtn.addEventListener('click', newGame);
 
-// ─── Boot ─────────────────────────────────────────────
-// Show overlay on first load, don't auto-start
 overlay.classList.remove('hidden');
 msg.textContent      = 'SUDOKU';
 sub.textContent      = 'Fill the grid so every row,\ncolumn and 3×3 box has 1–9';

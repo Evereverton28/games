@@ -1,30 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tic Tac Toe</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tic Tac Toe</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Tic Tac Toe</h1>
-        <div class="board">
-            <div class="cell" id="0"></div>
-            <div class="cell" id="1"></div>
-            <div class="cell" id="2"></div>
-            <div class="cell" id="3"></div>
-            <div class="cell" id="4"></div>
-            <div class="cell" id="5"></div>
-            <div class="cell" id="6"></div>
-            <div class="cell" id="7"></div>
-            <div class="cell" id="8"></div>
-            <div class="win-line"></div>
-        </div>
-        <div id="status">Player X's turn</div>
-        <button id="reset">Reset Game</button>
+  <div class="container">
+    <h1>Tic Tac Toe</h1>
+
+    <div class="scoreboard">
+      <div class="score-card" id="score-x">
+        <div class="score-label x">Player X</div>
+        <div class="score-value" id="score-x-val">0</div>
+      </div>
+      <div class="score-card" id="score-tie">
+        <div class="score-label tie">Ties</div>
+        <div class="score-value" id="score-tie-val">0</div>
+      </div>
+      <div class="score-card" id="score-o">
+        <div class="score-label o">Player O</div>
+        <div class="score-value" id="score-o-val">0</div>
+      </div>
     </div>
 
-    <script src="script.js"></script>
+    <div id="status" class="x-turn">Player X's turn</div>
+
+    <div class="board" id="board" role="grid" aria-label="Tic Tac Toe board">
+      <!-- cells injected by JS -->
+    </div>
+
+    <button id="reset">New Game</button>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>

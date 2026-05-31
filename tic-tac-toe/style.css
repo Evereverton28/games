@@ -1,146 +1,208 @@
-/* Updated CSS with additional animations */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0a0f;
+  --surface: #13131a;
+  --border: #1e1e2e;
+  --x-color: #f97316;
+  --o-color: #38bdf8;
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --win-bg: rgba(255,255,255,0.04);
+}
+
 body {
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    background: linear-gradient(135deg, #000428, #004e92); /* Dark blue gradient background */
-    overflow: hidden; /* Prevent scrolling */
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text);
+  background-image:
+    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(249,115,22,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(56,189,248,0.06) 0%, transparent 60%);
 }
 
 .container {
-    text-align: center;
-    font-family: 'Arial', sans-serif;
-    padding: 30px;
-    background-color: #f7f7f7;
-    border-radius: 15px;
-    box-shadow: 0px 0px 20px rgba(255, 255, 255, 0.5); /* Glowing effect around container */
-    width: fit-content;
-    margin: auto;
-    animation: fadeIn 1s ease-in-out, containerPulse 2s infinite; /* Add pulsing animation */
-    transform-origin: top center;
-    animation-delay: 0.3s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  padding: 40px 32px;
+  width: min(420px, 96vw);
+  animation: fadeUp 0.5s ease both;
 }
 
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 3rem;
+  letter-spacing: 6px;
+  background: linear-gradient(135deg, var(--x-color), var(--o-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Score tracker */
+.scoreboard {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.score-card {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 10px;
+  text-align: center;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.score-card.active-x { border-color: var(--x-color); box-shadow: 0 0 12px rgba(249,115,22,0.15); }
+.score-card.active-o { border-color: var(--o-color); box-shadow: 0 0 12px rgba(56,189,248,0.15); }
+
+.score-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.score-label.x   { color: var(--x-color); }
+.score-label.o   { color: var(--o-color); }
+.score-label.tie { color: var(--muted); }
+
+.score-value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.2rem;
+  line-height: 1;
+  color: var(--text);
+}
+
+/* Status */
+#status {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--muted);
+  height: 24px;
+  transition: color 0.3s;
+}
+
+#status.x-turn { color: var(--x-color); }
+#status.o-turn { color: var(--o-color); }
+#status.winner { color: var(--text); }
+
+/* Board */
 .board {
-    display: flex;
-    flex-wrap: wrap;
-    width: 300px; /* Adjusted width */
-    height: 300px; /* Ensure the board is square */
-    margin: 30px auto;
-    border: 3px solid #fff;
-    border-radius: 15px;
-    background-color: #004e92; /* Dark blue background */
-    overflow: hidden; /* Ensure nothing spills outside */
-    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5); /* Glow effect */
-    animation: boardGlow 2s infinite alternate; /* Add board glow animation */
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+  position: relative;
 }
 
 .cell {
-    width: 33.33%; /* Adjust to fit three cells per row */
-    height: 33.33%; /* Adjust to fit three cells per column */
-    border: 2px solid #ff512f; /* Use the vibrant gradient color */
-    box-sizing: border-box;
-    font-size: 36px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    font-weight: bold;
-    color: #fff;
-    background: linear-gradient(135deg, #ff512f, #dd2476); /* Vibrant gradient background */
-    animation: cellBounce 1s ease; /* Add cell bounce effect on load */
+  aspect-ratio: 1;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.8rem;
+  cursor: pointer;
+  color: transparent;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  user-select: none;
+  position: relative;
+  overflow: hidden;
 }
 
-.cell:hover {
-    background-color: #ff512f; /* Match hover color with button */
-    color: #fff;
-    animation: hoverPulse 0.5s ease-in-out infinite, hoverShadow 0.5s ease-in-out;
+.cell:focus-visible {
+  outline: 2px solid var(--o-color);
+  outline-offset: 2px;
 }
 
-#status {
-    font-size: 24px;
-    margin-bottom: 20px;
-    color: #ff512f; /* Same color as small boxes */
-    animation: fadeIn 1s ease-in-out, textGlow 1.5s infinite alternate;
-    letter-spacing: 2px;
-    text-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+.cell:not(.taken):hover {
+  border-color: var(--muted);
+  background: #1a1a25;
+  transform: scale(1.03);
 }
 
+.board-locked .cell:not(.taken):hover {
+  border-color: var(--border);
+  background: var(--surface);
+  transform: none;
+  cursor: not-allowed;
+}
+
+.cell.x {
+  color: var(--x-color);
+  border-color: rgba(249,115,22,0.4);
+  background: rgba(249,115,22,0.06);
+  animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+.cell.o {
+  color: var(--o-color);
+  border-color: rgba(56,189,248,0.4);
+  background: rgba(56,189,248,0.06);
+  animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+.cell.winner-cell {
+  background: var(--win-bg);
+  animation: winPulse 0.6s ease both;
+}
+
+.cell.x.winner-cell { border-color: var(--x-color); box-shadow: 0 0 20px rgba(249,115,22,0.3); }
+.cell.o.winner-cell { border-color: var(--o-color); box-shadow: 0 0 20px rgba(56,189,248,0.3); }
+
+.cell.taken { cursor: default; }
+
+@keyframes popIn {
+  from { transform: scale(0.5); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+@keyframes winPulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.08); }
+  70%  { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+
+/* Reset button */
 #reset {
-    font-size: 20px;
-    padding: 15px 30px;
-    cursor: pointer;
-    background: linear-gradient(135deg, #ff512f, #dd2476); /* Vibrant gradient */
-    color: #fff;
-    border: none;
-    border-radius: 50px; /* More rounded for flair */
-    transition: background-color 0.2s ease-in-out, transform 0.2s ease-in-out;
-    animation: fadeIn 1s ease-in-out, buttonLegendary 2s infinite, buttonPulse 1.5s infinite;
-    box-shadow: 0px 6px 8px rgba(0, 0, 0, 0.3);
-    text-transform: uppercase;
-    letter-spacing: 1px;
+  width: 100%;
+  padding: 14px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 3px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
 }
 
 #reset:hover {
-    background-color: #dd2476; /* Reverse the gradient on hover */
-    transform: translateY(-5px);
-    animation: buttonBounce 0.6s ease;
+  background: #1a1a25;
+  border-color: var(--muted);
+  transform: translateY(-2px);
 }
 
-/* Additional Animations */
-@keyframes containerPulse {
-    0% { box-shadow: 0px 0px 20px rgba(255, 255, 255, 0.5); }
-    50% { box-shadow: 0px 0px 30px rgba(255, 255, 255, 0.7); }
-    100% { box-shadow: 0px 0px 20px rgba(255, 255, 255, 0.5); }
-}
-
-@keyframes boardGlow {
-    0% { box-shadow: 0 0 15px rgba(255, 255, 255, 0.5); }
-    100% { box-shadow: 0 0 30px rgba(255, 255, 255, 0.8); }
-}
-
-@keyframes cellBounce {
-    from { transform: scale(0.8); opacity: 0.8; }
-    to { transform: scale(1); opacity: 1; }
-}
-
-@keyframes hoverPulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
-}
-
-@keyframes hoverShadow {
-    from { box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2); }
-    to { box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.5); }
-}
-
-@keyframes buttonLegendary {
-    0% { transform: scale(1) rotate(0deg); background: linear-gradient(135deg, #ff512f, #dd2476); }
-    25% { transform: scale(1.1) rotate(5deg); background: linear-gradient(135deg, #dd2476, #ff512f); }
-    50% { transform: scale(1.2) rotate(-5deg); background: linear-gradient(135deg, #ff512f, #dd2476); }
-    75% { transform: scale(1.1) rotate(5deg); background: linear-gradient(135deg, #dd2476, #ff512f); }
-    100% { transform: scale(1) rotate(0deg); background: linear-gradient(135deg, #ff512f, #dd2476); }
-}
-
-@keyframes buttonPulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.05); opacity: 0.9; }
-    100% { transform: scale(1); opacity: 1; }
-}
-
-@keyframes buttonBounce {
-    0% { transform: scale(1.2) translateY(0); }
-    50% { transform: scale(1.2) translateY(-10px); }
-    100% { transform: scale(1.2) translateY(0); }
-}
-
-@keyframes textGlow {
-    0% { text-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2); }
-    100% { text-shadow: 0px 4px 8px rgba(255, 255, 255, 0.6); }
-}
+#reset:active { transform: translateY(0); }

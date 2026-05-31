@@ -49,7 +49,6 @@ function newGame() {
   mineEl.textContent = '💣 ' + totalMines;
   timeEl.textContent = '⏱ 0';
 
-  // Build cell data
   grid = [];
   for (let r = 0; r < rows; r++) {
     grid[r] = [];
@@ -74,7 +73,6 @@ function placeMines(safeR, safeC) {
       placed++;
     }
   }
-  // Count neighbor mines
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       if (!grid[r][c].mine) {
@@ -99,7 +97,7 @@ function getNeighbors(r, c) {
 // ─── Render ───────────────────────────────────────────
 
 function renderBoard() {
-  boardEl.style.gridTemplateColumns = `repeat(${cols}, 34px)`;
+  boardEl.style.gridTemplateColumns = `repeat(${cols}, 32px)`;
   boardEl.innerHTML = '';
 
   for (let r = 0; r < rows; r++) {
@@ -238,6 +236,7 @@ function startTimer() {
 }
 
 // ─── Boot ────────────────────────────────────────────
+
 newGame();
 overlay.classList.remove('hidden');
 msg.textContent      = 'MINESWEEPER';
