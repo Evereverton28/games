@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2048</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="title-block">
+        <h1 class="game-title">2048</h1>
+        <p class="tagline">Slide. Merge. Reach&nbsp;2048.</p>
+      </div>
+      <div class="score-cluster">
+        <div class="score-box" id="score-box">
+          <span class="score-label">SCORE</span>
+          <span class="score-value" id="score">0</span>
+        </div>
+        <div class="score-box" id="best-box">
+          <span class="score-label">BEST</span>
+          <span class="score-value" id="best">0</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="controls">
+      <button class="btn-new" id="btn-new">New Game</button>
+      <div class="hint">Arrow keys or swipe to play</div>
+    </div>
+
+    <div class="board-wrap">
+      <div class="board" id="board">
+        <div class="grid-bg">
+          <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        </div>
+        <div class="tiles" id="tiles"></div>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="overlay">
+      <div class="overlay-inner">
+        <p class="overlay-msg" id="overlay-msg">Game Over</p>
+        <button class="btn-new" id="btn-retry">Try Again</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

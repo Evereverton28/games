@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wordle — Dark Arcade</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>WORDLE</h1>
+
+    <div class="difficulty-screen" id="difficultyScreen">
+      <p class="subtitle">Select difficulty</p>
+      <div class="difficulty-options">
+        <button class="diff-btn" data-difficulty="easy">EASY</button>
+        <button class="diff-btn" data-difficulty="medium">MEDIUM</button>
+        <button class="diff-btn" data-difficulty="hard">HARD</button>
+      </div>
+    </div>
+
+    <div class="game-screen hidden" id="gameScreen">
+      <p class="difficulty-label" id="difficultyLabel"></p>
+
+      <div class="board" id="board"></div>
+
+      <p class="message" id="message">&nbsp;</p>
+
+      <div class="keyboard" id="keyboard"></div>
+
+      <div class="action-buttons">
+        <button id="changeDifficulty">CHANGE DIFFICULTY</button>
+        <button id="restart">RESTART</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="words.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
