@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Match</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Memory Match</h1>
+
+    <div class="hud">
+      <div class="score-card">
+        <span class="label">Moves</span>
+        <span class="value" id="moves">0</span>
+      </div>
+      <div class="score-card">
+        <span class="label">Pairs</span>
+        <span class="value" id="pairs">0 / 8</span>
+      </div>
+      <div class="score-card">
+        <span class="label">Time</span>
+        <span class="value" id="time">00:00</span>
+      </div>
+    </div>
+
+    <div class="board" id="board"></div>
+
+    <div class="controls">
+      <div class="difficulty" id="difficulty">
+        <button class="diff-btn active" data-diff="easy">Easy</button>
+        <button class="diff-btn" data-diff="medium">Medium</button>
+        <button class="diff-btn" data-diff="hard">Hard</button>
+      </div>
+      <button id="restart">Restart</button>
+    </div>
+
+    <div class="overlay hidden" id="winOverlay">
+      <div class="win-card">
+        <h2>You Win!</h2>
+        <p id="winStats"></p>
+        <button id="playAgain">Play Again</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

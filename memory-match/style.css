@@ -1,0 +1,304 @@
+:root {
+  --bg:      #0a0a0f;
+  --surface: #13131a;
+  --border:  #1e1e2e;
+  --text:    #e2e8f0;
+  --muted:   #64748b;
+
+  --x-color: #f97316;
+  --o-color: #38bdf8;
+
+  --win-bg:  rgba(255,255,255,0.04);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(249,115,22,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(56,189,248,0.06) 0%, transparent 60%);
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text);
+  padding: 20px;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  animation: fadeUp 0.5s ease both;
+}
+
+h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 3rem;
+  letter-spacing: 8px;
+  margin: 0;
+  background: linear-gradient(135deg, var(--x-color), var(--o-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* HUD */
+.hud {
+  display: flex;
+  gap: 16px;
+}
+
+.score-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 90px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.score-card .label {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 3px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.score-card .value {
+  font-family: 'DM Sans', monospace;
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.score-card.active-x {
+  border-color: var(--x-color);
+  box-shadow: 0 0 12px rgba(249,115,22,0.15);
+}
+
+.score-card.active-o {
+  border-color: var(--o-color);
+  box-shadow: 0 0 12px rgba(56,189,248,0.15);
+}
+
+/* Board */
+.board {
+  display: grid;
+  gap: 12px;
+  width: min(92vw, 520px);
+}
+
+.card {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  perspective: 600px;
+  box-shadow:
+    0 0 0 1px rgba(56,189,248,0.06),
+    0 0 40px rgba(56,189,248,0.06);
+  transition: box-shadow 0.3s;
+  animation: fadeUp 0.5s ease both;
+}
+
+.card:hover {
+  box-shadow:
+    0 0 0 1px rgba(56,189,248,0.12),
+    0 0 48px rgba(56,189,248,0.10);
+}
+
+.card-inner {
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.4, 0.2, 0.2, 1);
+}
+
+.card.flipped .card-inner {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  backface-visibility: hidden;
+  font-size: 2.4rem;
+}
+
+.card-front {
+  background: var(--surface);
+}
+
+.card-front::after {
+  content: '?';
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.2rem;
+  letter-spacing: 2px;
+  color: var(--muted);
+}
+
+.card-back {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  transform: rotateY(180deg);
+}
+
+.card.matched .card-back {
+  border-color: var(--o-color);
+  box-shadow: 0 0 20px rgba(56,189,248,0.3);
+}
+
+.card.matched.x .card-back {
+  border-color: var(--x-color);
+  box-shadow: 0 0 20px rgba(249,115,22,0.3);
+}
+
+.card.placed {
+  animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+.card.winner-cell .card-inner {
+  animation: winPulse 0.6s ease both;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  animation: fadeUp 0.5s ease 0.15s both;
+}
+
+.difficulty {
+  display: flex;
+  gap: 8px;
+}
+
+.diff-btn {
+  padding: 8px 20px;
+  font-size: 0.85rem;
+  letter-spacing: 2px;
+}
+
+.diff-btn.active {
+  border-color: var(--o-color);
+  box-shadow: 0 0 12px rgba(56,189,248,0.15);
+  color: var(--o-color);
+}
+
+.board.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.board.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.board.cols-5 { grid-template-columns: repeat(5, 1fr); }
+
+.board.cols-3 .card-back,
+.board.cols-3 .card-front::after { font-size: 1.8rem; }
+
+.board.cols-5 .card-back,
+.board.cols-5 .card-front::after { font-size: 1.6rem; }
+
+button {
+  padding: 12px 32px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 3px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+
+button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(249,115,22,0.08), rgba(56,189,248,0.08));
+  opacity: 0;
+  transition: opacity 0.2s;
+  border-radius: inherit;
+}
+
+button:hover::before { opacity: 1; }
+button:hover { border-color: var(--muted); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+button:active { transform: translateY(0); box-shadow: none; }
+button:focus-visible { outline: 2px solid var(--o-color); outline-offset: 2px; }
+
+/* Overlay */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10,10,15,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+.win-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  padding: 40px 56px;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(56,189,248,0.15);
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+.win-card h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 6px;
+  font-size: 2.4rem;
+  margin: 0 0 8px;
+  background: linear-gradient(135deg, var(--x-color), var(--o-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.win-card p {
+  color: var(--muted);
+  margin: 0 0 20px;
+}
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes popIn {
+  from { transform: scale(0.5); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+@keyframes winPulse {
+  0%   { transform: rotateY(180deg) scale(1); }
+  40%  { transform: rotateY(180deg) scale(1.08); }
+  70%  { transform: rotateY(180deg) scale(0.96); }
+  100% { transform: rotateY(180deg) scale(1); }
+}

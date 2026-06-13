@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Flappy Bird</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>FLAPPY BIRD</h1>
+    <div class="hud">
+      <div class="score-card">
+        <span class="label">SCORE</span>
+        <span id="score">0</span>
+      </div>
+      <div class="score-card">
+        <span class="label">BEST</span>
+        <span id="best">0</span>
+      </div>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="game" width="400" height="600"></canvas>
+      <div id="overlay">
+        <h2 id="overlayTitle">FLAPPY BIRD</h2>
+        <p class="hint">Press SPACE, click, or tap to flap</p>
+        <button id="startBtn">START</button>
+      </div>
+    </div>
+    <p class="hint">SPACE / CLICK / TAP to flap</p>
+  </div>
+<script src="script.js"></script>
+</body>
+</html>
