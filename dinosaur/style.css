@@ -1,0 +1,189 @@
+:root {
+  --bg:      #0a0a0f;
+  --surface: #13131a;
+  --border:  #1e1e2e;
+  --text:    #e2e8f0;
+  --muted:   #64748b;
+  --x-color: #f97316;
+  --o-color: #38bdf8;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(249,115,22,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(56,189,248,0.06) 0%, transparent 60%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text);
+  padding: 2rem 1rem;
+}
+
+.container {
+  width: 100%;
+  max-width: 940px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  animation: fadeUp 0.5s ease both;
+}
+
+h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  letter-spacing: 8px;
+  background: linear-gradient(135deg, var(--x-color), var(--o-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hud {
+  display: flex;
+  gap: 1rem;
+  animation: fadeUp 0.5s ease 0.1s both;
+}
+
+.score-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.6rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 110px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.score-card.active-x {
+  border-color: var(--x-color);
+  box-shadow: 0 0 12px rgba(249,115,22,0.2);
+}
+
+.score-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 3px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.score-value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.9rem;
+  letter-spacing: 4px;
+  color: var(--text);
+}
+
+.canvas-wrapper {
+  position: relative;
+  width: 100%;
+  animation: fadeUp 0.5s ease 0.2s both;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px rgba(56,189,248,0.06),
+    0 0 40px rgba(56,189,248,0.06);
+  transition: box-shadow 0.3s;
+  background: var(--surface);
+}
+
+canvas:hover {
+  box-shadow:
+    0 0 0 1px rgba(56,189,248,0.12),
+    0 0 48px rgba(56,189,248,0.10);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border-radius: 14px;
+  background: rgba(10,10,15,0.78);
+  backdrop-filter: blur(2px);
+  transition: opacity 0.3s;
+}
+
+.overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.overlay-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  letter-spacing: 8px;
+  background: linear-gradient(135deg, var(--x-color), var(--o-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.overlay-sub {
+  font-size: 0.8rem;
+  letter-spacing: 3px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+button {
+  padding: 12px 32px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 3px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+  margin-top: 0.5rem;
+}
+
+button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(249,115,22,0.08), rgba(56,189,248,0.08));
+  opacity: 0;
+  transition: opacity 0.2s;
+  border-radius: inherit;
+}
+
+button:hover::before  { opacity: 1; }
+button:hover          { border-color: var(--muted); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+button:active         { transform: translateY(0); box-shadow: none; }
+button:focus-visible  { outline: 2px solid var(--o-color); outline-offset: 2px; }
+
+.hint {
+  font-size: 0.72rem;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  animation: fadeUp 0.5s ease 0.3s both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
