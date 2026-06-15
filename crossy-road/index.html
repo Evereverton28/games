@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CROSSY ROADS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- SCREENS -->
+  <div id="start-screen" class="screen active">
+    <div class="screen-inner">
+      <div class="logo-wrap">
+        <h1 class="logo">Crossy<br>Roads</h1>
+        <p class="tagline">Look both ways. Then run anyway.</p>
+      </div>
+      <div class="controls-hint">
+        <div class="hint-row"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> or <span class="key">↑</span><span class="key">←</span><span class="key">↓</span><span class="key">→</span> to move</div>
+      </div>
+      <button id="start-btn">START GAME</button>
+      <div class="high-score-display">BEST <span id="best-display">0</span></div>
+    </div>
+  </div>
+
+  <div id="game-screen" class="screen">
+    <div class="hud">
+      <div class="score-card" id="score-card">
+        <div class="score-label">SCORE</div>
+        <div class="score-value" id="score-val">0</div>
+      </div>
+      <div class="score-card" id="best-card">
+        <div class="score-label">BEST</div>
+        <div class="score-value" id="best-val">0</div>
+      </div>
+    </div>
+    <canvas id="game-canvas"></canvas>
+  </div>
+
+  <div id="dead-screen" class="screen">
+    <div class="screen-inner">
+      <h2 class="dead-title">GAME OVER</h2>
+      <div class="result-row">
+        <div class="result-block">
+          <div class="result-label">SCORE</div>
+          <div class="result-value" id="final-score">0</div>
+        </div>
+        <div class="result-block">
+          <div class="result-label">BEST</div>
+          <div class="result-value" id="final-best">0</div>
+        </div>
+      </div>
+      <button id="retry-btn">PLAY AGAIN</button>
+      <button id="menu-btn">MENU</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Colour Sort</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="container" id="container">
+    <h1>Colour Sort</h1>
+    <p class="subtitle">Click a tube to pick up colours — then click another to pour.</p>
+
+    <div class="hud">
+      <div class="hud-item">
+        <span class="hud-label">LEVEL</span>
+        <span class="hud-value" id="level-display">1</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">MOVES</span>
+        <span class="hud-value" id="moves-display">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">BEST</span>
+        <span class="hud-value" id="best-display">—</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">HINTS</span>
+        <span class="hud-value" id="hints-display">3</span>
+      </div>
+    </div>
+
+    <div class="tubes-wrapper" id="tubes-wrapper"></div>
+
+    <div class="controls">
+      <button id="btn-undo">↩ Undo</button>
+      <button id="btn-hint">💡 Hint</button>
+      <button id="btn-restart">↺ Restart</button>
+      <button id="btn-next" style="display:none">Next Level →</button>
+    </div>
+
+    <div id="hint-msg" class="hint-msg" style="display:none"></div>
+
+    <div id="win-banner" class="win-banner" style="display:none">
+      <span>Level Complete!</span>
+    </div>
+  </div>
+
+  <canvas id="particles-canvas"></canvas>
+  <script src="script.js"></script>
+</body>
+</html>

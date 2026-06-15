@@ -1,0 +1,385 @@
+:root {
+  --bg:      #0a0a0f;
+  --surface: #13131a;
+  --border:  #1e1e2e;
+  --text:    #e2e8f0;
+  --muted:   #64748b;
+  --x-color: #f97316;
+  --o-color: #38bdf8;
+  --win-bg:  rgba(255,255,255,0.04);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  overflow-x: hidden;
+}
+
+body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(249,115,22,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(56,189,248,0.06) 0%, transparent 60%);
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1rem 4rem;
+}
+
+#particles-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* ── Container ── */
+.container {
+  width: 100%;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2.8rem, 8vw, 4.5rem);
+  letter-spacing: 6px;
+  background: linear-gradient(135deg, var(--x-color), var(--o-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(-24px);
+  animation: titleDrop 0.7s cubic-bezier(0.22,1,0.36,1) 0.1s both;
+}
+
+@keyframes titleDrop {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.subtitle {
+  font-size: 0.9rem;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+  text-align: center;
+  opacity: 0;
+  animation: fadeUp 0.5s ease 0.4s both;
+}
+
+/* ── HUD ── */
+.hud {
+  display: flex;
+  gap: 2rem;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 0.75rem 2rem;
+  opacity: 0;
+  animation: fadeUp 0.5s ease 0.5s both;
+}
+
+.hud-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+
+.hud-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.hud-value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8rem;
+  letter-spacing: 2px;
+  color: var(--text);
+  line-height: 1;
+  transition: transform 0.15s cubic-bezier(0.175,0.885,0.32,1.275), color 0.2s;
+}
+
+.hud-value.bump {
+  animation: hudBump 0.3s cubic-bezier(0.175,0.885,0.32,1.275) both;
+}
+
+@keyframes hudBump {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.35); color: var(--o-color); }
+  100% { transform: scale(1); }
+}
+
+/* ── Tubes wrapper ── */
+.tubes-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+  padding: 0.5rem 0;
+  position: relative;
+}
+
+/* ── Individual tube ── */
+.tube {
+  width: 58px;
+  height: 210px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 0 0 29px 29px;
+  border-top: none;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column-reverse;
+  overflow: hidden;
+  transition: border-color 0.25s, box-shadow 0.25s;
+  will-change: transform;
+}
+
+
+.tube.entering {
+  animation: tubeEntrance 0.55s cubic-bezier(0.22,1,0.36,1) both;
+  /* 'both' fill-mode keeps the from-state during animation-delay */
+}
+
+@keyframes tubeEntrance {
+  from { opacity: 0; transform: translateY(40px) scale(0.85); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.tube::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -2px; right: -2px;
+  height: 7px;
+  background: var(--border);
+  border-radius: 4px 4px 0 0;
+  z-index: 4;
+  transition: background 0.25s;
+}
+
+/* Liquid surface sheen */
+.tube::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, transparent 40%, rgba(255,255,255,0.015) 100%);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.tube.selected {
+  border-color: var(--o-color);
+  box-shadow:
+    0 0 0 1px rgba(56,189,248,0.35),
+    0 0 28px rgba(56,189,248,0.25),
+    inset 0 0 20px rgba(56,189,248,0.04);
+}
+
+.tube.selected::before { background: rgba(56,189,248,0.6); }
+
+.tube.solved {
+  border-color: var(--x-color);
+  box-shadow:
+    0 0 0 1px rgba(249,115,22,0.3),
+    0 0 24px rgba(249,115,22,0.2);
+  cursor: default;
+  animation: solvedPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes solvedPulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(249,115,22,0.3), 0 0 24px rgba(249,115,22,0.2); }
+  50%       { box-shadow: 0 0 0 1px rgba(249,115,22,0.5), 0 0 36px rgba(249,115,22,0.35); }
+}
+
+.tube.invalid-flash {
+  animation: invalidFlash 0.4s ease both;
+}
+
+@keyframes invalidFlash {
+  0%   { border-color: var(--border); }
+  25%  { border-color: #fb7185; box-shadow: 0 0 20px rgba(251,113,133,0.4); }
+  75%  { border-color: #fb7185; }
+  100% { border-color: var(--border); box-shadow: none; }
+}
+
+/* ── Colour segment ── */
+.segment {
+  width: 100%;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Liquid gloss on each segment */
+.segment::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 40%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+/* New segments pouring in — height animates from 0 */
+.segment.pour-in {
+  animation: liquidFill 0.22s cubic-bezier(0.4,0,0.2,1) both;
+}
+
+@keyframes liquidFill {
+  from { transform: scaleY(0); transform-origin: bottom; opacity: 0.6; }
+  to   { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
+}
+
+/* Segments leaving — used transiently via JS */
+.segment.pour-out {
+  animation: liquidDrain 0.18s ease-in both;
+}
+
+@keyframes liquidDrain {
+  from { transform: scaleY(1); transform-origin: top; opacity: 1; }
+  to   { transform: scaleY(0); transform-origin: top; opacity: 0; }
+}
+
+/* ── Controls ── */
+.controls {
+  display: flex;
+  gap: 12px;
+  opacity: 0;
+  animation: fadeUp 0.5s ease 0.6s both;
+}
+
+button {
+  padding: 12px 32px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 3px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+
+button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(249,115,22,0.09), rgba(56,189,248,0.09));
+  opacity: 0;
+  transition: opacity 0.2s;
+  border-radius: inherit;
+}
+
+button:hover::before  { opacity: 1; }
+button:hover          { border-color: var(--muted); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+button:active         { transform: translateY(1px); box-shadow: none; }
+button:focus-visible  { outline: 2px solid var(--o-color); outline-offset: 2px; }
+
+#btn-next { border-color: var(--x-color); color: var(--x-color); }
+#btn-next:hover { border-color: var(--o-color); color: var(--o-color); }
+
+/* ── Win banner ── */
+.win-banner {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.8rem;
+  letter-spacing: 7px;
+  background: linear-gradient(135deg, var(--x-color), var(--o-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-align: center;
+  opacity: 0;
+}
+
+.win-banner.show {
+  animation: winReveal 0.7s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+@keyframes winReveal {
+  0%   { opacity: 0; transform: scale(0.6) translateY(10px); filter: blur(8px); }
+  60%  { filter: blur(0); }
+  80%  { transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ── Shared keyframes ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Responsive ── */
+@media (max-width: 500px) {
+  .tube { width: 46px; height: 168px; border-radius: 0 0 23px 23px; }
+  .hud { gap: 1.2rem; padding: 0.6rem 1.2rem; }
+  h1 { letter-spacing: 4px; }
+  .controls { flex-wrap: wrap; justify-content: center; }
+  button { padding: 10px 20px; font-size: 0.95rem; }
+}
+
+/* ── Hint system ── */
+.tube.hint-from {
+  border-color: #facc15 !important;
+  box-shadow:
+    0 0 0 1px rgba(250,204,21,0.5),
+    0 0 28px rgba(250,204,21,0.35) !important;
+  animation: hintFromPulse 0.7s ease-in-out infinite alternate !important;
+}
+
+@keyframes hintFromPulse {
+  from { box-shadow: 0 0 0 1px rgba(250,204,21,0.4), 0 0 20px rgba(250,204,21,0.25); }
+  to   { box-shadow: 0 0 0 2px rgba(250,204,21,0.8), 0 0 40px rgba(250,204,21,0.5); }
+}
+
+.tube.hint-to {
+  border-color: #34d399 !important;
+  box-shadow:
+    0 0 0 1px rgba(52,211,153,0.5),
+    0 0 28px rgba(52,211,153,0.35) !important;
+  animation: hintToPulse 0.7s ease-in-out infinite alternate !important;
+  animation-delay: 0.18s !important;
+}
+
+@keyframes hintToPulse {
+  from { box-shadow: 0 0 0 1px rgba(52,211,153,0.4), 0 0 20px rgba(52,211,153,0.25); }
+  to   { box-shadow: 0 0 0 2px rgba(52,211,153,0.8), 0 0 40px rgba(52,211,153,0.5); }
+}
+
+.hint-msg {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+  text-align: center;
+  padding: 0.4rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  animation: fadeUp 0.3s ease both;
+}
+
+.hint-msg strong { color: #facc15; font-weight: 600; }
+
+#btn-hint {
+  border-color: #facc15;
+  color: #facc15;
+}
+#btn-hint:hover { border-color: #fde047; color: #fde047; }
+#btn-hint:disabled { border-color: var(--border); color: var(--muted); cursor: not-allowed; opacity: 0.5; }
+#btn-hint:disabled:hover { transform: none; box-shadow: none; }
+#btn-hint:disabled::before { display: none; }

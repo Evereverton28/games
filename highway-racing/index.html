@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>HIGHWAY BLITZ</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ══ TITLE SCREEN ══ -->
+  <div id="screen-title" class="screen active">
+    <div class="title-content">
+      <div class="title-eyebrow">ENDLESS HIGHWAY</div>
+      <h1 class="title-logo">BLITZ</h1>
+      <div class="title-sub">DODGE • SURVIVE • SCORE</div>
+      <div class="car-preview">🚗</div>
+
+      <!-- Coin bank -->
+      <div id="title-coins">
+        <span class="coin-icon">🪙</span>
+        <span id="title-coin-count">0</span>
+        <span class="coin-label">COINS</span>
+      </div>
+
+      <div class="title-btns">
+        <button id="btn-start"  class="btn-primary">START RACE</button>
+        <button id="btn-shop"   class="btn-secondary">UPGRADES</button>
+      </div>
+
+      <div class="controls-grid">
+        <div class="ctrl-row"><span class="key">← →</span><span>change lane</span></div>
+        <div class="ctrl-row"><span class="key">SHIFT</span><span>nitro boost</span></div>
+        <div class="ctrl-row"><span class="key">ESC</span><span>pause</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SHOP SCREEN ══ -->
+  <div id="screen-shop" class="screen">
+    <div class="shop-content">
+      <div class="shop-title">UPGRADES</div>
+      <div id="shop-coins-display">
+        <span class="coin-icon">🪙</span>
+        <span id="shop-coin-count">0</span>
+      </div>
+      <div class="shop-grid" id="shop-grid"></div>
+      <button id="btn-shop-back" class="btn-primary" style="margin-top:20px">BACK</button>
+    </div>
+  </div>
+
+  <!-- ══ GAME SCREEN ══ -->
+  <div id="screen-game" class="screen">
+
+    <!-- HUD top bar -->
+    <div id="hud">
+      <div class="hud-block">
+        <div class="hud-label">SCORE</div>
+        <div class="hud-value" id="hud-score">0</div>
+      </div>
+      <div class="hud-block center">
+        <div class="combo-wrap">
+          <span class="hud-label">COMBO</span>
+          <span id="hud-combo" class="combo-val">x1</span>
+        </div>
+        <div class="hud-label" id="hud-phase-label">HIGHWAY</div>
+      </div>
+      <div class="hud-block right">
+        <div class="hud-label">LIVES</div>
+        <div class="hud-value" id="hud-lives">❤️❤️❤️</div>
+      </div>
+    </div>
+
+    <!-- Sub-bar: speed + nitro + active power-up -->
+    <div id="sub-bar">
+      <div class="bar-item">
+        <span class="bar-label">SPD</span>
+        <div class="thin-bar"><div id="speed-bar-fill"></div></div>
+        <span id="hud-speed" class="bar-val">0</span>
+      </div>
+      <div class="bar-item grow">
+        <span class="bar-label nitro-lbl">NOS</span>
+        <div class="thin-bar"><div id="nitro-bar-fill" class="nitro-fill"></div></div>
+      </div>
+      <div id="powerup-hud"></div>
+    </div>
+
+    <!-- Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Mobile controls -->
+    <div id="mobile-controls">
+      <button id="btn-left"  class="mob-btn">◀</button>
+      <button id="btn-nitro" class="mob-btn nitro-btn">NITRO</button>
+      <button id="btn-right" class="mob-btn">▶</button>
+    </div>
+  </div>
+
+  <!-- ══ PAUSE SCREEN ══ -->
+  <div id="screen-pause" class="screen">
+    <div class="pause-content">
+      <div class="pause-title">PAUSED</div>
+      <button id="btn-resume"  class="btn-primary">RESUME</button>
+      <button id="btn-quit"    class="btn-secondary">QUIT TO MENU</button>
+    </div>
+  </div>
+
+  <!-- ══ GAME OVER SCREEN ══ -->
+  <div id="screen-gameover" class="screen">
+    <div class="gameover-content">
+      <div class="go-eyebrow">GAME OVER</div>
+      <div class="go-score-label">FINAL SCORE</div>
+      <div class="go-score" id="go-score">0</div>
+      <div class="go-best-row">
+        <span class="go-best-label">BEST</span>
+        <span class="go-best" id="go-best">0</span>
+      </div>
+
+      <!-- Stats breakdown -->
+      <div class="go-stats" id="go-stats"></div>
+
+      <!-- Coins earned this run -->
+      <div class="go-coins-earned">
+        <span class="coin-icon">🪙</span>
+        <span id="go-coins-earned">+0 coins</span>
+      </div>
+
+      <div class="go-btns">
+        <button id="btn-restart" class="btn-primary">RACE AGAIN</button>
+        <button id="btn-go-menu" class="btn-secondary">MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
