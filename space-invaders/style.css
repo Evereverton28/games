@@ -1,0 +1,113 @@
+:root {
+  --bg:      #0a0a0f;
+  --surface: #13131a;
+  --border:  #1e1e2e;
+  --text:    #e2e8f0;
+  --muted:   #64748b;
+  --x-color: #f97316;
+  --o-color: #38bdf8;
+  --danger:  #ef4444;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(249,115,22,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(56,189,248,0.06) 0%, transparent 60%);
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text);
+  padding: 2rem 1rem;
+  touch-action: none;
+}
+
+.container {
+  width: 100%; max-width: 680px;
+  display: flex; flex-direction: column; align-items: center; gap: 1.1rem;
+}
+
+h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2.2rem, 7vw, 3.6rem);
+  letter-spacing: 5px; line-height: 1;
+  background: linear-gradient(135deg, var(--x-color), var(--o-color));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+/* ── HUD ── */
+.hud { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.hud-item {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 12px; padding: 8px 16px;
+  display: flex; flex-direction: column; align-items: center; min-width: 76px;
+}
+.hud-label { font-size: 0.62rem; font-weight: 600; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+.hud-value { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; letter-spacing: 1px; }
+.hud-value.bump { animation: hudBump 0.3s cubic-bezier(0.175,0.885,0.32,1.275); }
+#lives-display { color: var(--danger); letter-spacing: 2px; }
+@keyframes hudBump { 0%{transform:scale(1);} 50%{transform:scale(1.35);color:var(--o-color);} 100%{transform:scale(1);} }
+
+/* ── Canvas ── */
+.canvas-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1.5px solid var(--border);
+  box-shadow: 0 0 40px rgba(56,189,248,0.08);
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background:
+    radial-gradient(ellipse at 50% 120%, rgba(56,189,248,0.08), transparent 60%),
+    #06060b;
+  touch-action: none;
+}
+
+.overlay {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  background: rgba(6,6,11,0.9);
+  backdrop-filter: blur(4px);
+  text-align: center; padding: 1rem;
+}
+.overlay.hidden { display: none; }
+.overlay-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: clamp(2rem,7vw,3rem); letter-spacing: 3px;
+  background: linear-gradient(135deg, var(--x-color), var(--o-color));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.overlay-sub { color: var(--muted); font-size: 0.9rem; max-width: 340px; }
+
+button {
+  font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 600;
+  color: #0a0a0f;
+  background: linear-gradient(135deg, var(--x-color), var(--o-color));
+  border: none; border-radius: 12px; padding: 12px 30px; cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s; letter-spacing: 1px;
+}
+button:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(249,115,22,0.3); }
+button:active { transform: translateY(1px); }
+
+/* ── Mobile controls ── */
+#mobile-controls { display: none; gap: 12px; width: 100%; max-width: 480px; }
+.mob-btn {
+  flex: 1;
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 2px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 16px 0; cursor: pointer;
+  transition: background 0.1s, transform 0.1s;
+}
+.mob-btn.fire { color: var(--x-color); }
+.mob-btn.pressed { background: var(--border); transform: scale(0.96); }
+@media (hover: none) and (pointer: coarse) { #mobile-controls { display: flex; } }
+
+.hint { color: var(--muted); font-size: 0.78rem; text-align: center; }

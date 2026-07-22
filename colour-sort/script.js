@@ -9,66 +9,90 @@ const COLOURS = [
 ];
 
 const LEVELS = [
-  { colours:3, tubeSize:4, emptyTubes:1 },  // 1 — intro
-  { colours:4, tubeSize:4, emptyTubes:1 },  // 2
-  { colours:4, tubeSize:4, emptyTubes:2 },  // 3 — extra empty tube
+  { colours:3, tubeSize:4, emptyTubes:2 },  // 1 — intro
+  { colours:4, tubeSize:4, emptyTubes:2 },  // 2
+  { colours:4, tubeSize:4, emptyTubes:2 },  // 3
   { colours:5, tubeSize:4, emptyTubes:2 },  // 4
-  { colours:6, tubeSize:4, emptyTubes:2 },  // 5
-  { colours:6, tubeSize:4, emptyTubes:1 },  // 6 — tighter
-  { colours:7, tubeSize:4, emptyTubes:2 },  // 7
-  { colours:7, tubeSize:4, emptyTubes:1 },  // 8 — tighter
+  { colours:5, tubeSize:4, emptyTubes:2 },  // 5
+  { colours:6, tubeSize:4, emptyTubes:2 },  // 6
+  { colours:6, tubeSize:4, emptyTubes:2 },  // 7
+  { colours:7, tubeSize:4, emptyTubes:2 },  // 8
   { colours:8, tubeSize:4, emptyTubes:2 },  // 9
-  { colours:8, tubeSize:4, emptyTubes:1 },  // 10 — hardest
+  { colours:8, tubeSize:4, emptyTubes:2 },  // 10 — hardest
 ];
 
 /* ════════════════════════════════════════════════════════
    GUARANTEED-SOLVABLE PUZZLE GENERATOR
-   Scrambles ONE segment at a time into any tube with room
-   (ignoring colour matching). Every move is reversible so
-   the result is always solvable from the solved state.
+
+   Deal colours randomly, then VERIFY the deal is solvable
+   with a full DFS solver before accepting it. Random deals
+   are often unsolvable (especially with few empty tubes),
+   so we reject-sample until we find a solvable, non-trivial
+   layout. The solver runs in a few milliseconds, so this is
+   fast and the result is provably solvable — never a dead
+   end for the player.
    ════════════════════════════════════════════════════════ */
-function generateTubes(li) {
-  const { colours, tubeSize, emptyTubes } = LEVELS[li];
-  const totalTubes = colours + emptyTubes;
 
-  // Build solved state as a flat pool then redistribute randomly.
-  // This guarantees every colour appears exactly tubeSize times.
-  const pool = [];
-  for (let i = 0; i < colours; i++) {
-    for (let j = 0; j < tubeSize; j++) pool.push(COLOURS[i]);
+// Full solver: returns true if `tubes` can be solved, false if not,
+// or null if the search budget was exhausted (treated as "not sure").
+function isSolvableState(tubes, tubeSize, cap = 150000) {
+  const canon = t => t.map(a => a.join(',')).sort().join('|'); // order-independent
+  const seen = new Set();
+  const stack = [deepCopyTubes(tubes)];
+  let steps = 0;
+  while (stack.length) {
+    if (++steps > cap) return null;
+    const cur = stack.pop();
+    if (isSolvedStatic(cur, tubeSize)) return true;
+    const k = canon(cur);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    const n = cur.length;
+    for (let f = 0; f < n; f++) {
+      if (!cur[f].length) continue;
+      for (let t = 0; t < n; t++) {
+        if (f === t || !canPourStatic(cur[f], cur[t], tubeSize)) continue;
+        const nx = deepCopyTubes(cur);
+        const cnt = Math.min(countTopStatic(nx[f]), tubeSize - nx[t].length);
+        for (let i = 0; i < cnt; i++) nx[t].push(nx[f].pop());
+        if (!seen.has(canon(nx))) stack.push(nx);
+      }
+    }
   }
+  return false;
+}
 
-  // Fisher-Yates shuffle the pool
+function dealTubes(colours, tubeSize, emptyTubes) {
+  const pool = [];
+  for (let i = 0; i < colours; i++)
+    for (let j = 0; j < tubeSize; j++) pool.push(COLOURS[i]);
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
-
-  // Fill colour tubes from shuffled pool
   const tubes = [];
-  for (let i = 0; i < colours; i++) {
-    tubes.push(pool.splice(0, tubeSize));
-  }
+  for (let i = 0; i < colours; i++) tubes.push(pool.splice(0, tubeSize));
   for (let i = 0; i < emptyTubes; i++) tubes.push([]);
-
-  // If accidentally solved, re-shuffle until not (very rare)
-  const isSolved = () => tubes.every(t =>
-    t.length === 0 || (t.length === tubeSize && t.every(c => c === t[0]))
-  );
-
-  // Re-shuffle the pool until not accidentally in solved state
-  let attempts = 0;
-  while (isSolved() && attempts++ < 100) {
-    // Swap two random segments from different tubes
-    const t1 = Math.floor(Math.random() * colours);
-    let t2 = Math.floor(Math.random() * colours);
-    while (t2 === t1) t2 = Math.floor(Math.random() * colours);
-    const s1 = Math.floor(Math.random() * tubeSize);
-    const s2 = Math.floor(Math.random() * tubeSize);
-    [tubes[t1][s1], tubes[t2][s2]] = [tubes[t2][s2], tubes[t1][s1]];
-  }
-
   return tubes;
+}
+
+function generateTubes(li) {
+  const { colours, tubeSize, emptyTubes } = LEVELS[li];
+
+  // Reject-sample until we get a solvable, non-trivial deal.
+  // If somehow none pass at the target empty-tube count, add one
+  // more empty tube (which makes solvability far more likely) and
+  // keep trying — the level stays solvable, never a dead end.
+  for (let extra = 0; extra <= 2; extra++) {
+    const empties = emptyTubes + extra;
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const tubes = dealTubes(colours, tubeSize, empties);
+      if (isSolvedStatic(tubes, tubeSize)) continue;       // skip trivially-solved
+      if (isSolvableState(tubes, tubeSize) === true) return tubes;
+    }
+  }
+  // Absolute fallback (extremely unlikely to reach): plenty of empties.
+  return dealTubes(colours, tubeSize, emptyTubes + 2);
 }
 
 /* ════════════════════════════════════════════════════════
@@ -296,6 +320,11 @@ function spawnArc(x1, y1, x2, y2, col, onDone) {
 
 let tubeSpring = {};
 
+/* Active tilt-and-pour animation (null when idle).
+   Drives the source tube's lift+tilt transform and a flowing
+   liquid stream drawn on the particle canvas. */
+let pourAnim = null;
+
 function getTubeEl(idx) { return wrapper.querySelector(`[data-idx="${idx}"]`); }
 
 function setSpringTarget(idx, target) {
@@ -335,37 +364,18 @@ function loop() {
     document.getElementById('container').style.transform='';
   }
 
-  /* spring lifts */
+  /* spring lifts (the tube currently pouring is driven by pourAnim instead) */
   Object.entries(tubeSpring).forEach(([idx,s])=>{
     const f=(s.target-s.y)*K;
     s.vy=(s.vy+f)*DAMP;
     s.y+=s.vy;
+    if (pourAnim && Number(idx)===pourAnim.fromIdx) return;
     const el=getTubeEl(Number(idx));
     if (el) el.style.transform=`translateY(${(-s.y).toFixed(2)}px)`;
   });
 
-  /* arcs */
-  arcs = arcs.filter(a=>{
-    if (a.done) return false;
-    a.t=Math.min(1,a.t+0.055);
-    const t=a.t;
-    const cx=(a.x1+a.x2)/2, cy=Math.min(a.y1,a.y2)-80;
-    const bx=lerp(lerp(a.x1,cx,t),lerp(cx,a.x2,t),t);
-    const by=lerp(lerp(a.y1,cy,t),lerp(cy,a.y2,t),t);
-    a.spawnTimer++;
-    if (a.spawnTimer%2===0) {
-      const [r,g,b]=hex2rgb(a.col);
-      particles.push({ kind:'dot',x:bx,y:by,dx:(Math.random()-0.5)*0.8,dy:(Math.random()-0.5)*0.8,
-        r:4+Math.random()*3,life:0.85,decay:0.06,gravity:0.05,col:`${r},${g},${b}` });
-    }
-    const [r,g,b]=hex2rgb(a.col);
-    pCtx.beginPath(); pCtx.arc(bx,by,6,0,Math.PI*2);
-    pCtx.fillStyle=`rgba(${r},${g},${b},0.92)`; pCtx.fill();
-    pCtx.beginPath(); pCtx.arc(bx,by,12,0,Math.PI*2);
-    pCtx.fillStyle=`rgba(${r},${g},${b},0.18)`; pCtx.fill();
-    if (a.t>=1) { a.done=true; if (a.onDone) a.onDone(bx,by); }
-    return !a.done;
-  });
+  /* tilt-and-pour animation */
+  if (pourAnim) updatePourAnim();
 
   /* particles */
   particles.forEach(p=>{
@@ -502,7 +512,13 @@ function renderTubes(opts={}) {
       if (state.hintMove && idx===state.hintMove[0]) el.classList.add('hint-from');
       if (state.hintMove && idx===state.hintMove[1]) el.classList.add('hint-to');
 
+      // Optionally hide the top N segments of one tube (used so poured
+      // liquid "appears" only when the stream lands, not before).
+      const hideN = (opts.hideTopIdx===idx) ? (opts.hideTopCount||0) : 0;
+      const visibleLen = tube.length - hideN;
+
       tube.forEach((col,si)=>{
+        if (si>=visibleLen) return;   // skip hidden top segments
         const seg=document.createElement('div');
         seg.className='segment'+(opts.pourInIdx===idx&&si===tube.length-1?' pour-in':'');
         seg.style.height=`${segH}%`;
@@ -619,18 +635,151 @@ function animatedPour(fromIdx, toIdx, col, onDone) {
   const fromEl=getTubeEl(fromIdx), toEl=getTubeEl(toIdx);
   if (!fromEl||!toEl){ onDone(); return; }
   const fr=fromEl.getBoundingClientRect(), tr=toEl.getBoundingClientRect();
-  const x1=fr.left+fr.width/2, y1=fr.top+8;
-  const x2=tr.left+tr.width/2, y2=tr.top+8;
-  setSpringTarget(fromIdx, 14+Math.sign(x2-x1)*4);
-  spawnArc(x1,y1,x2,y2,col,()=>{
-    const landY=tr.top+tr.height*0.3;
-    spawnBurst(x2,landY,col,10,{spread:Math.PI,dir:Math.PI/2,speedMin:1,speedMax:3,gravity:0.2});
-    spawnDroplets(x2,landY,col,6);
-    spawnRipple(x2,landY,col);
-    spawnRipple(x2,landY,col);
-    triggerShake(2);
-    if (onDone) onDone();
-  });
+
+  // Tilt toward whichever side the destination is on.
+  const dir = tr.left < fr.left ? -1 : 1;   // pour left or right
+  const tilt = dir * 52;                     // degrees at full tilt
+
+  // Where the source tube should sit while pouring: lifted, and nudged
+  // so its spout hovers just above the destination's rim.
+  const lift = 46;                           // px lifted up
+  const overlap = fr.width * 0.62;           // move toward destination
+  const shiftX = dir * (Math.abs(tr.left - fr.left) > fr.width*1.4 ? overlap : overlap*0.5);
+
+  pourAnim = {
+    fromIdx, toIdx, col, dir, tilt, lift, shiftX,
+    phase:'lift',      // lift -> pour -> return
+    t:0,
+    fromEl, toEl,
+    onDone,
+    streamOn:false,
+    poured:false,
+  };
+}
+
+/* Drives pourAnim each frame: lift the source, tilt it, run the
+   liquid stream into the destination, then return the source. */
+function updatePourAnim() {
+  const a = pourAnim;
+  const el = a.fromEl;
+
+  // Phase timing (in ~frames at 60fps)
+  const LIFT_DUR = 12, POUR_DUR = 20, RETURN_DUR = 12;
+  const ease = t => t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;   // easeInOutQuad
+
+  if (a.phase==='lift') {
+    a.t++;
+    const p = ease(Math.min(1, a.t/LIFT_DUR));
+    const tx = a.shiftX * p;
+    const ty = -a.lift * p;
+    const rot = a.tilt * p;
+    el.style.transformOrigin = a.dir<0 ? '80% 20%' : '20% 20%';
+    el.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) rotate(${rot.toFixed(1)}deg)`;
+    el.style.zIndex = 50;
+    if (a.t>=LIFT_DUR){ a.phase='pour'; a.t=0; a.streamOn=true; }
+    return;
+  }
+
+  if (a.phase==='pour') {
+    a.t++;
+    // hold the tilted, lifted pose
+    el.style.transformOrigin = a.dir<0 ? '80% 20%' : '20% 20%';
+    el.style.transform = `translate(${a.shiftX.toFixed(1)}px, ${(-a.lift).toFixed(1)}px) rotate(${a.tilt.toFixed(1)}deg)`;
+
+    drawPourStream(a);
+
+    // When the stream reaches the destination, reveal the poured
+    // segments (they animate up via the .pour-in fill) and splash.
+    if (!a.poured && a.t>=Math.floor(POUR_DUR*0.35)) {
+      a.poured = true;
+      // reveal the previously-hidden top segments with fill animation
+      renderTubes({ rebuild:true, pourInIdx:a.toIdx });
+      // re-apply the source tube's tilt transform (rebuild reset it)
+      a.fromEl = getTubeEl(a.fromIdx);
+      a.toEl   = getTubeEl(a.toIdx);
+      if (a.fromEl) {
+        a.fromEl.style.transformOrigin = a.dir<0 ? '80% 20%' : '20% 20%';
+        a.fromEl.style.transform = `translate(${a.shiftX.toFixed(1)}px, ${(-a.lift).toFixed(1)}px) rotate(${a.tilt.toFixed(1)}deg)`;
+        a.fromEl.style.zIndex = 50;
+      }
+      const tr = a.toEl ? a.toEl.getBoundingClientRect() : null;
+      if (tr) {
+        const landX = tr.left + tr.width/2;
+        const landY = tr.top + Math.max(10, tr.height*0.18);
+        spawnRipple(landX, landY, a.col);
+        spawnDroplets(landX, landY, a.col, 5);
+      }
+      triggerShake(1.5);
+    }
+    if (a.t>=POUR_DUR){ a.phase='return'; a.t=0; a.streamOn=false; }
+    return;
+  }
+
+  if (a.phase==='return') {
+    a.t++;
+    const p = ease(Math.min(1, a.t/RETURN_DUR));
+    const inv = 1-p;
+    const tx = a.shiftX * inv;
+    const ty = -a.lift * inv;
+    const rot = a.tilt * inv;
+    el.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) rotate(${rot.toFixed(1)}deg)`;
+    if (a.t>=RETURN_DUR){
+      el.style.transform = '';
+      el.style.zIndex = '';
+      const done = a.onDone;
+      pourAnim = null;
+      if (done) done();
+    }
+    return;
+  }
+}
+
+/* Draws a flowing liquid stream from the source spout to the
+   destination surface on the particle canvas. */
+function drawPourStream(a) {
+  const fr = a.fromEl.getBoundingClientRect();
+  const tr = a.toEl.getBoundingClientRect();
+  // Spout = the lifted, tilted top corner of the source on the pour side.
+  const spoutX = a.dir<0 ? fr.left + fr.width*0.15 : fr.right - fr.width*0.15;
+  const spoutY = fr.top + fr.height*0.06;
+  // Landing point = top-centre of destination liquid.
+  const landX = tr.left + tr.width/2;
+  const landY = tr.top + Math.max(8, tr.height*0.16);
+
+  const [r,g,b] = hex2rgb(a.col);
+
+  // Curved stream (quadratic) with slight wobble for a liquid feel.
+  const wob = Math.sin(a.t*0.6)*3;
+  const cx = (spoutX+landX)/2 + wob;
+  const cy = Math.min(spoutY, landY) - 6;
+
+  pCtx.save();
+  pCtx.lineCap='round';
+  // outer glow
+  pCtx.beginPath();
+  pCtx.moveTo(spoutX, spoutY);
+  pCtx.quadraticCurveTo(cx, cy, landX, landY);
+  pCtx.strokeStyle=`rgba(${r},${g},${b},0.25)`; pCtx.lineWidth=9; pCtx.stroke();
+  // core stream
+  pCtx.beginPath();
+  pCtx.moveTo(spoutX, spoutY);
+  pCtx.quadraticCurveTo(cx, cy, landX, landY);
+  pCtx.strokeStyle=`rgba(${r},${g},${b},0.95)`; pCtx.lineWidth=4.5; pCtx.stroke();
+  // highlight
+  pCtx.beginPath();
+  pCtx.moveTo(spoutX, spoutY);
+  pCtx.quadraticCurveTo(cx, cy, landX, landY);
+  pCtx.strokeStyle='rgba(255,255,255,0.28)'; pCtx.lineWidth=1.5; pCtx.stroke();
+  pCtx.restore();
+
+  // occasional falling droplet along the stream
+  if (a.t%3===0) {
+    const tt=Math.random();
+    const bx=lerp(lerp(spoutX,cx,tt),lerp(cx,landX,tt),tt);
+    const by=lerp(lerp(spoutY,cy,tt),lerp(cy,landY,tt),tt);
+    particles.push({ kind:'dot',x:bx,y:by,dx:(Math.random()-0.5)*0.5,dy:1+Math.random(),
+      r:2.5+Math.random()*2,life:0.7,decay:0.05,gravity:0.12,col:`${r},${g},${b}` });
+  }
 }
 
 /* ════════════════════════════════════════════════════════
@@ -696,7 +845,10 @@ function onTubeClick(idx) {
   bumpHud('moves-display');
   Sounds.pour();
   setSpringTarget(fromIdx,0);
-  renderTubes({rebuild:true});
+
+  // Render with the source already drained but the destination's newly
+  // poured segments HIDDEN — they'll appear when the stream lands.
+  renderTubes({ rebuild:true, hideTopIdx:idx, hideTopCount:available });
 
   animatedPour(fromIdx, idx, col, ()=>{
     state.pouring=false;

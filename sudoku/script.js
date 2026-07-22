@@ -305,8 +305,10 @@ function buildNumpad() {
     btn.className = 'num-btn';
     btn.textContent = n;
     let count = 0;
-    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
-      if (userGrid[r][c] === n && solution[r][c] === n) count++;
+    if (userGrid.length === 9 && solution.length === 9) {
+      for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+        if (userGrid[r][c] === n && solution[r][c] === n) count++;
+      }
     }
     if (count >= 9) btn.classList.add('exhausted');
     btn.addEventListener('click', () => inputNumber(n));

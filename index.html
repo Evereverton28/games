@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dark Arcade</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── TOKENS ───────────────────────────────────────────── */
+    :root {
+      --bg:      #0a0a0f;
+      --surface: #13131a;
+      --border:  #1e1e2e;
+      --text:    #e2e8f0;
+      --muted:   #64748b;
+      --x:       #f97316;
+      --o:       #38bdf8;
+    }
+
+    /* ─── RESET ────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    /* ─── CUSTOM CURSOR ────────────────────────────────────── */
+    body { cursor: none; }
+    #cursor {
+      position: fixed;
+      width: 12px; height: 12px;
+      background: var(--o);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 99999;
+      transform: translate(-50%, -50%);
+      transition: width 0.2s, height 0.2s, background 0.2s, opacity 0.2s;
+      mix-blend-mode: screen;
+    }
+    #cursor-ring {
+      position: fixed;
+      width: 36px; height: 36px;
+      border: 1.5px solid rgba(56,189,248,0.5);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 99998;
+      transform: translate(-50%, -50%);
+      transition: width 0.35s cubic-bezier(.23,1,.32,1),
+                  height 0.35s cubic-bezier(.23,1,.32,1),
+                  border-color 0.3s;
+    }
+    body:has(a:hover) #cursor        { width: 6px; height: 6px; background: var(--x); }
+    body:has(a:hover) #cursor-ring   { width: 52px; height: 52px; border-color: rgba(249,115,22,0.6); }
+    body:has(button:hover) #cursor-ring { width: 44px; height: 44px; border-color: rgba(56,189,248,0.6); }
+
+    /* ─── BASE ─────────────────────────────────────────────── */
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── CRT SCANLINES ────────────────────────────────────── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px, transparent 3px,
+        rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px
+      );
+      pointer-events: none;
+      z-index: 9000;
+    }
+
+    /* ─── SPARK CANVAS ─────────────────────────────────────── */
+    #sparkCanvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 8999;
+    }
+
+    /* ─── HERO ─────────────────────────────────────────────── */
+    header {
+      position: relative;
+      min-height: 420px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 24px 64px;
+      text-align: center;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    /* Ambient gradient blobs */
+    .hero-blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .hero-blob-1 {
+      width: 500px; height: 500px;
+      background: rgba(249,115,22,0.09);
+      top: -120px; left: -100px;
+      animation: blobDrift 14s ease-in-out infinite alternate;
+    }
+    .hero-blob-2 {
+      width: 400px; height: 400px;
+      background: rgba(56,189,248,0.09);
+      bottom: -80px; right: -60px;
+      animation: blobDrift 18s ease-in-out infinite alternate-reverse;
+    }
+    @keyframes blobDrift {
+      from { transform: translate(0,0) scale(1); }
+      to   { transform: translate(40px, 20px) scale(1.08); }
+    }
+
+    /* Cube grid background */
+    #cubeGrid {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      overflow: hidden;
+    }
+    .cube-grid-inner {
+      display: grid;
+      gap: 3px;
+      width: 100%; height: 100%;
+      opacity: 0.35;
+    }
+    .cube-cell {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      transform-style: preserve-3d;
+      transition: transform 0.4s cubic-bezier(.23,1,.32,1),
+                  background 0.4s,
+                  border-color 0.4s;
+      will-change: transform;
+    }
+
+    /* Top gradient rule */
+    header::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%; transform: translateX(-50%);
+      width: min(700px, 90vw); height: 1px;
+      background: linear-gradient(90deg, transparent, var(--x), var(--o), transparent);
+      z-index: 3;
+    }
+
+    /* Hero content wrapper */
+    .hero-content {
+      position: relative;
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .eyebrow {
+      font-family: 'DM Sans', monospace;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(3.5rem, 13vw, 9rem);
+      letter-spacing: 10px;
+      line-height: 0.88;
+      background: linear-gradient(135deg, var(--x) 30%, var(--o) 70%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: fadeUp 0.5s ease 0.06s both;
+      position: relative;
+      user-select: none;
+    }
+
+    /* Tagline with word-reveal */
+    .tagline {
+      font-size: 1rem;
+      color: var(--muted);
+      margin-top: 22px;
+      letter-spacing: 0.5px;
+      line-height: 1.6;
+      max-width: 420px;
+    }
+    .tagline .word {
+      display: inline-block;
+      opacity: 0;
+      transform: translateY(14px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .tagline .word.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Stats row */
+    .stats-row {
+      display: flex;
+      gap: 32px;
+      margin-top: 36px;
+      animation: fadeUp 0.5s ease 0.4s both;
+    }
+    .stat {
+      text-align: center;
+    }
+    .stat-num {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2rem;
+      letter-spacing: 3px;
+      background: linear-gradient(135deg, var(--x), var(--o));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .stat-label {
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .stat-divider {
+      width: 1px;
+      background: var(--border);
+      align-self: stretch;
+    }
+
+    /* ─── MARQUEE STRIP ────────────────────────────────────── */
+    .marquee-strip {
+      width: 100%;
+      overflow: hidden;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      padding: 11px 0;
+      position: relative;
+      z-index: 5;
+    }
+    .marquee-strip::before,
+    .marquee-strip::after {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 80px;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .marquee-strip::before { left: 0; background: linear-gradient(to right, var(--surface), transparent); }
+    .marquee-strip::after  { right: 0; background: linear-gradient(to left, var(--surface), transparent); }
+    .marquee-track {
+      display: flex;
+      width: max-content;
+      animation: marquee 28s linear infinite;
+    }
+    .marquee-track:hover { animation-play-state: paused; }
+    .marquee-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 28px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.95rem;
+      letter-spacing: 3px;
+      color: var(--muted);
+      white-space: nowrap;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .marquee-item:hover { color: var(--text); }
+    .marquee-item span { font-size: 1.1rem; }
+    .marquee-dot {
+      width: 3px; height: 3px;
+      border-radius: 50%;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+    @keyframes marquee {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+
+    /* ─── SEARCH + FILTER ──────────────────────────────────── */
+    .controls {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 40px 24px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+      animation: fadeUp 0.5s ease 0.2s both;
+    }
+
+    .search-wrap {
+      position: relative;
+      width: min(480px, 100%);
+    }
+    .search-icon {
+      position: absolute;
+      left: 14px; top: 50%; transform: translateY(-50%);
+      pointer-events: none;
+      opacity: 0.4;
+    }
+    .search-input {
+      width: 100%;
+      padding: 13px 20px 13px 44px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search-input::placeholder { color: var(--muted); }
+    .search-input:focus {
+      border-color: var(--o);
+      box-shadow: 0 0 0 3px rgba(56,189,248,0.08);
+    }
+
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      justify-content: center;
+    }
+    .filter-btn {
+      padding: 7px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.76rem;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 100px;
+      cursor: none;
+      transition: color 0.2s, background 0.2s, border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+    }
+    .filter-btn:hover {
+      color: var(--text);
+      border-color: var(--muted);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .filter-btn.active {
+      color: var(--bg);
+      background: linear-gradient(135deg, var(--x), var(--o));
+      border-color: transparent;
+      box-shadow: 0 4px 16px rgba(249,115,22,0.25);
+    }
+
+    /* ─── GAME COUNT ───────────────────────────────────────── */
+    .results-bar {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 0 24px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .results-count {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .results-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ─── GRID ─────────────────────────────────────────────── */
+    .grid-section {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: 14px;
+    }
+
+    /* ─── GAME CARD ────────────────────────────────────────── */
+    .game-card {
+      position: relative;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 18px;
+      overflow: hidden;
+      cursor: none;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.25s, transform 0.22s cubic-bezier(.23,1,.32,1), box-shadow 0.25s;
+      animation: fadeUp 0.45s ease both;
+      /* For border glow */
+      --glow-x: 50%;
+      --glow-y: 50%;
+      --glow-opacity: 0;
+    }
+    .game-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1.5px;
+      background: radial-gradient(
+        120px circle at var(--glow-x) var(--glow-y),
+        rgba(249,115,22,calc(var(--glow-opacity) * 0.9)),
+        rgba(56,189,248,calc(var(--glow-opacity) * 0.5)) 50%,
+        transparent 70%
+      );
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask-composite: exclude;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 0.2s;
+    }
+    .game-card:hover {
+      transform: translateY(-5px) scale(1.01);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+    }
+    .game-card:hover .card-accent { opacity: 1; }
+    .game-card:hover .play-btn { opacity: 1; transform: scale(1) rotate(0deg); }
+    .game-card:hover .card-emoji { transform: scale(1.15) rotate(-5deg); }
+
+    .card-accent {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      opacity: 0.45;
+      transition: opacity 0.25s;
+      z-index: 2;
+    }
+
+    .card-thumb {
+      height: 155px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 4rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .card-thumb-bg {
+      position: absolute;
+      inset: 0;
+      opacity: 0.1;
+      transition: opacity 0.3s;
+    }
+    .game-card:hover .card-thumb-bg { opacity: 0.16; }
+    /* Subtle grid lines in thumb */
+    .card-thumb::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 28px 28px;
+      opacity: 0.25;
+      z-index: 0;
+    }
+    .card-emoji {
+      position: relative;
+      z-index: 1;
+      filter: drop-shadow(0 4px 16px rgba(0,0,0,0.7));
+      transition: transform 0.35s cubic-bezier(.23,1,.32,1);
+    }
+
+    .play-btn {
+      position: absolute;
+      bottom: 12px; right: 12px;
+      width: 38px; height: 38px;
+      background: rgba(255,255,255,0.1);
+      border: 1.5px solid rgba(255,255,255,0.18);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0;
+      transform: scale(0.7) rotate(-15deg);
+      transition: opacity 0.25s, transform 0.3s cubic-bezier(.23,1,.32,1);
+      z-index: 2;
+      backdrop-filter: blur(4px);
+    }
+    .play-btn svg { fill: white; width: 14px; height: 14px; margin-left: 2px; }
+
+    .card-body {
+      padding: 16px 18px 18px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+      z-index: 1;
+    }
+    .card-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.35rem;
+      letter-spacing: 3px;
+      line-height: 1;
+    }
+    .card-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .card-tag {
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 100px;
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .card-desc {
+      font-size: 0.81rem;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-top: 2px;
+    }
+
+    /* Featured card */
+    .game-card.featured { grid-column: span 2; flex-direction: row; }
+    .game-card.featured .card-thumb { width: 230px; height: auto; flex-shrink: 0; font-size: 5rem; }
+    .game-card.featured .card-emoji { font-size: 5rem; }
+    @media (max-width: 640px) {
+      .game-card.featured { grid-column: span 1; flex-direction: column; }
+      .game-card.featured .card-thumb { width: 100%; height: 140px; font-size: 4rem; }
+    }
+
+    /* ─── EMPTY STATE ──────────────────────────────────────── */
+    .empty-state { display: none; text-align: center; padding: 72px 24px; }
+    .empty-state.visible { display: block; }
+    .empty-state .empty-emoji { font-size: 3rem; }
+    .empty-state p { color: var(--muted); margin-top: 12px; }
+
+    /* ─── FOOTER ───────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 36px 24px;
+      text-align: center;
+      position: relative;
+    }
+    footer::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%; transform: translateX(-50%);
+      width: min(300px, 80%); height: 1px;
+      background: linear-gradient(90deg, transparent, var(--x), var(--o), transparent);
+    }
+    footer p { font-size: 0.75rem; color: var(--muted); letter-spacing: 1.5px; }
+    footer .heart { color: var(--x); }
+
+    /* ─── SCROLL TOP ───────────────────────────────────────── */
+    .scroll-top {
+      position: fixed;
+      bottom: 28px; right: 28px;
+      width: 44px; height: 44px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: none;
+      opacity: 0;
+      transform: translateY(14px);
+      transition: opacity 0.3s, transform 0.3s, border-color 0.2s, box-shadow 0.2s;
+      z-index: 100;
+    }
+    .scroll-top.visible { opacity: 1; transform: translateY(0); }
+    .scroll-top:hover { border-color: var(--o); box-shadow: 0 0 16px rgba(56,189,248,0.2); }
+    .scroll-top svg { fill: none; stroke: var(--muted); stroke-width: 2; }
+
+    /* ─── ANIMATIONS ───────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Card stagger */
+    .game-card:nth-child(1)  { animation-delay:.05s }
+    .game-card:nth-child(2)  { animation-delay:.08s }
+    .game-card:nth-child(3)  { animation-delay:.11s }
+    .game-card:nth-child(4)  { animation-delay:.14s }
+    .game-card:nth-child(5)  { animation-delay:.17s }
+    .game-card:nth-child(6)  { animation-delay:.20s }
+    .game-card:nth-child(7)  { animation-delay:.23s }
+    .game-card:nth-child(8)  { animation-delay:.26s }
+    .game-card:nth-child(9)  { animation-delay:.29s }
+    .game-card:nth-child(10) { animation-delay:.32s }
+    .game-card:nth-child(11) { animation-delay:.35s }
+    .game-card:nth-child(12) { animation-delay:.38s }
+    .game-card:nth-child(13) { animation-delay:.41s }
+    .game-card:nth-child(14) { animation-delay:.44s }
+    .game-card:nth-child(15) { animation-delay:.47s }
+    .game-card:nth-child(16) { animation-delay:.50s }
+    .game-card:nth-child(17) { animation-delay:.53s }
+
+    @media (max-width: 500px) {
+      .game-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .card-thumb { height: 110px; font-size: 2.8rem; }
+      .card-body { padding: 10px 12px 12px; }
+      .stats-row { gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── CUSTOM CURSOR ──────────────────────────────────────── -->
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<!-- ─── SPARK CANVAS (click sparks) ───────────────────────── -->
+<canvas id="sparkCanvas"></canvas>
+
+<!-- ─── HERO ──────────────────────────────────────────────── -->
+<header>
+  <div class="hero-blob hero-blob-1"></div>
+  <div class="hero-blob hero-blob-2"></div>
+  <div id="cubeGrid"></div>
+
+  <div class="hero-content">
+    <p class="eyebrow" id="eyebrowCount">browser-native &nbsp;·&nbsp; no installs</p>
+    <h1 class="logo">Dark Arcade</h1>
+    <p class="tagline" id="tagline"></p>
+    <div class="stats-row">
+      <div class="stat">
+        <div class="stat-num" id="statGames">0</div>
+        <div class="stat-label">Games</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <div class="stat-num">5</div>
+        <div class="stat-label">Categories</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <div class="stat-num">0</div>
+        <div class="stat-label">Downloads</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ─── MARQUEE STRIP ─────────────────────────────────────── -->
+<div class="marquee-strip">
+  <div class="marquee-track" id="marqueeTrack"></div>
+</div>
+
+<!-- ─── CONTROLS ─────────────────────────────────────────── -->
+<div class="controls">
+  <div class="search-wrap">
+    <svg class="search-icon" width="16" height="16" fill="none" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="7" stroke="#64748b" stroke-width="2"/>
+      <path d="M16.5 16.5L21 21" stroke="#64748b" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <input class="search-input" type="text" placeholder="Search games…" id="searchInput" autocomplete="off" />
+  </div>
+  <div class="filter-bar" id="filterBar">
+    <button class="filter-btn active" data-filter="all">All Games</button>
+    <button class="filter-btn" data-filter="strategy">♟ Strategy</button>
+    <button class="filter-btn" data-filter="arcade">🕹 Arcade</button>
+    <button class="filter-btn" data-filter="puzzle">🧩 Puzzle</button>
+    <button class="filter-btn" data-filter="racing">🚗 Racing</button>
+    <button class="filter-btn" data-filter="word">📝 Word</button>
+  </div>
+</div>
+
+<!-- ─── RESULTS BAR ───────────────────────────────────────── -->
+<div class="results-bar">
+  <span class="results-count" id="resultsCount">Games</span>
+  <div class="results-line"></div>
+</div>
+
+<!-- ─── GAME GRID ─────────────────────────────────────────── -->
+<main class="grid-section">
+  <div class="game-grid" id="gameGrid"></div>
+  <div class="empty-state" id="emptyState">
+    <div class="empty-emoji">🕹️</div>
+    <p>No games match. Try a different search.</p>
+  </div>
+</main>
+
+<!-- ─── FOOTER ────────────────────────────────────────────── -->
+<footer>
+  <p>Dark Arcade &nbsp;·&nbsp; All games run in your browser &nbsp;·&nbsp; Built with <span class="heart">♥</span></p>
+</footer>
+
+<!-- ─── SCROLL TO TOP ─────────────────────────────────────── -->
+<button class="scroll-top" id="scrollTop" title="Back to top">
+  <svg width="18" height="18" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+</button>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   GAME DATA
+═══════════════════════════════════════════════════════════ */
+const GAMES = [
+  { id:'chess',         title:'Chess',         emoji:'♟️', desc:'Classic chess with full piece movement, check detection, and an AI opponent.',              tags:['strategy'],         color:'#f97316', path:'chess/index.html',         featured:false },
+  { id:'checkers',      title:'Checkers',       emoji:'🔴', desc:'Jump, capture, and king your pieces in this timeless board game.',                          tags:['strategy'],         color:'#ef4444', path:'checkers/index.html' },
+  { id:'tic-tac-toe',   title:'Tic-Tac-Toe',   emoji:'✖️', desc:'X vs O — a perfect warm-up or a test of pattern recognition.',                             tags:['strategy','puzzle'], color:'#38bdf8', path:'tic-tac-toe/index.html' },
+  { id:'wordle',        title:'Wordle',         emoji:'🟩', desc:'Guess the five-letter word in six tries. New word every round.',                            tags:['word','puzzle'],    color:'#22c55e', path:'wordle/index.html' },
+  { id:'sudoku',        title:'Sudoku',         emoji:'🔢', desc:'Fill the 9×9 grid. Three difficulty levels with hint assistance.',                          tags:['puzzle'],           color:'#a78bfa', path:'sudoku/index.html' },
+  { id:'minesweeper',   title:'Minesweeper',    emoji:'💣', desc:'Clear the board without detonating a mine. Logic under pressure.',                          tags:['puzzle'],           color:'#f97316', path:'minesweeper/index.html' },
+  { id:'2048',          title:'2048',           emoji:'🟦', desc:'Slide tiles and merge numbers to reach the elusive 2048 tile.',                             tags:['puzzle'],           color:'#38bdf8', path:'2048/index.html' },
+  { id:'memory-match',  title:'Memory Match',   emoji:'🃏', desc:'Flip cards and match pairs. Tests your short-term memory across three difficulty levels.',  tags:['puzzle'],           color:'#f59e0b', path:'memory-match/index.html' },
+  { id:'colour-sort',   title:'Colour Sort',    emoji:'🎨', desc:'Sort coloured liquid into matching tubes. Deceptively tricky.',                             tags:['puzzle'],           color:'#ec4899', path:'colour-sort/index.html' },
+  { id:'snake',         title:'Snake',          emoji:'🐍', desc:"Grow your snake, eat the food, and don't bite yourself.",                                   tags:['arcade'],           color:'#22c55e', path:'snake/index.html' },
+  { id:'pong',          title:'Pong',           emoji:'🏓', desc:'The original arcade hit. Two paddles, one ball, infinite rivalry.',                         tags:['arcade'],           color:'#38bdf8', path:'pong/index.html' },
+  { id:'breakout-ball', title:'Breakout',       emoji:'🧱', desc:'Smash bricks with a bouncing ball and paddle. Retro reflex action.',                        tags:['arcade'],           color:'#f97316', path:'breakout-ball/index.html' },
+  { id:'flappy-bird',   title:'Flappy Bird',    emoji:'🐦', desc:'Tap to stay airborne and thread the gap between the pipes.',                                tags:['arcade'],           color:'#facc15', path:'flappy-bird/index.html' },
+  { id:'dinosaur',      title:'Dinosaur Run',   emoji:'🦕', desc:'Jump over cacti and duck under pterodactyls in the endless desert.',                        tags:['arcade'],           color:'#22c55e', path:'dinosaur/index.html' },
+  { id:'crossy-road',   title:'Crossy Road',    emoji:'🐔', desc:'Hop across traffic and rivers without getting squashed.',                                   tags:['arcade'],           color:'#f97316', path:'crossy-road/index.html' },
+  { id:'tetris',        title:'Tetris',         emoji:'🟦', desc:'Stack falling tetrominoes, clear lines, and chase the level. Hold, ghost, and hard drop included.', tags:['puzzle','arcade'], color:'#38bdf8', path:'tetris/index.html' },
+  { id:'space-invaders',title:'Space Invaders', emoji:'👾', desc:'Blast the descending alien fleet, hide behind bunkers, and survive escalating waves.',        tags:['arcade'],           color:'#a78bfa', path:'space-invaders/index.html' },
+  { id:'whack-a-mole',  title:'Whack-a-Mole',   emoji:'🔨', desc:'Bop moles for points and grab the gold ones — but dodge the bombs. 30 seconds on the clock.',   tags:['arcade'],           color:'#f97316', path:'whack-a-mole/index.html' },
+  { id:'lights-out',    title:'Lights Out',     emoji:'💡', desc:'Flip tiles to switch every light off. 10 levels, real hints, and a growing grid.',              tags:['puzzle'],           color:'#facc15', path:'lights-out/index.html' },
+  { id:'highway-racing',title:'Highway Blitz',  emoji:'🚗', desc:'Lane-snap through 4 escalating phases. Collect coins, dodge traffic, survive the storm.',   tags:['racing','arcade'],  color:'#38bdf8', path:'highway-racing/index.html', featured:true },
+];
+
+/* ═══════════════════════════════════════════════════════════
+   DYNAMIC COUNTS (keep hero/stats honest as games are added)
+═══════════════════════════════════════════════════════════ */
+(function setCounts() {
+  const n = GAMES.length;
+  const cats = new Set();
+  GAMES.forEach(g => g.tags.forEach(t => cats.add(t)));
+  document.getElementById('statGames').textContent = n;
+  const eyebrow = document.getElementById('eyebrowCount');
+  eyebrow.innerHTML = `${n} games &nbsp;·&nbsp; browser-native &nbsp;·&nbsp; no installs`;
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   CUSTOM CURSOR
+═══════════════════════════════════════════════════════════ */
+const cursor     = document.getElementById('cursor');
+const cursorRing = document.getElementById('cursor-ring');
+let mx = -200, my = -200, rx = -200, ry = -200;
+
+document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+document.addEventListener('mouseleave', () => { mx = -200; my = -200; });
+
+(function cursorLoop() {
+  rx += (mx - rx) * 0.12;
+  ry += (my - ry) * 0.12;
+  cursor.style.left     = mx + 'px';
+  cursor.style.top      = my + 'px';
+  cursorRing.style.left = rx + 'px';
+  cursorRing.style.top  = ry + 'px';
+  requestAnimationFrame(cursorLoop);
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   CLICK SPARKS (ClickSpark component, ported to vanilla)
+═══════════════════════════════════════════════════════════ */
+const sparkCanvas = document.getElementById('sparkCanvas');
+const sparkCtx    = sparkCanvas.getContext('2d');
+let sparks = [];
+const SPARK_COLOR  = '#f97316';
+const SPARK_COLOR2 = '#38bdf8';
+const SPARK_COUNT  = 10;
+const SPARK_RADIUS = 40;
+const SPARK_SIZE   = 12;
+const SPARK_DUR    = 500;
+
+function resizeSpark() {
+  sparkCanvas.width  = window.innerWidth;
+  sparkCanvas.height = window.innerHeight;
+}
+resizeSpark();
+window.addEventListener('resize', resizeSpark);
+
+document.addEventListener('click', e => {
+  const col = Math.random() > 0.5 ? SPARK_COLOR : SPARK_COLOR2;
+  const now = performance.now();
+  for (let i = 0; i < SPARK_COUNT; i++) {
+    sparks.push({
+      x: e.clientX, y: e.clientY,
+      angle: (Math.PI * 2 * i) / SPARK_COUNT + (Math.random() - 0.5) * 0.4,
+      startTime: now,
+      col
+    });
+  }
+});
+
+(function sparkLoop(ts) {
+  sparkCtx.clearRect(0, 0, sparkCanvas.width, sparkCanvas.height);
+  sparks = sparks.filter(s => {
+    const elapsed = ts - s.startTime;
+    if (elapsed >= SPARK_DUR) return false;
+    const t      = elapsed / SPARK_DUR;
+    const eased  = t * (2 - t);           // ease-out quad
+    const dist   = eased * SPARK_RADIUS;
+    const length = SPARK_SIZE * (1 - eased);
+    const x1 = s.x + dist * Math.cos(s.angle);
+    const y1 = s.y + dist * Math.sin(s.angle);
+    const x2 = s.x + (dist + length) * Math.cos(s.angle);
+    const y2 = s.y + (dist + length) * Math.sin(s.angle);
+    const alpha = Math.floor((1 - t) * 200).toString(16).padStart(2,'0');
+    sparkCtx.strokeStyle = s.col + alpha;
+    sparkCtx.lineWidth   = 2;
+    sparkCtx.lineCap     = 'round';
+    sparkCtx.beginPath();
+    sparkCtx.moveTo(x1, y1);
+    sparkCtx.lineTo(x2, y2);
+    sparkCtx.stroke();
+    return true;
+  });
+  requestAnimationFrame(sparkLoop);
+})(0);
+
+/* ═══════════════════════════════════════════════════════════
+   CUBE GRID HERO BACKGROUND (Cubes component, CSS 3D port)
+═══════════════════════════════════════════════════════════ */
+(function buildCubeGrid() {
+  const container = document.getElementById('cubeGrid');
+  const COLS = 18, ROWS = 6;
+  const inner = document.createElement('div');
+  inner.className = 'cube-grid-inner';
+  inner.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+  inner.style.gridTemplateRows    = `repeat(${ROWS}, 1fr)`;
+  container.appendChild(inner);
+
+  const cells = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cube-cell';
+      cell.dataset.r = r; cell.dataset.c = c;
+      inner.appendChild(cell);
+      cells.push({ el: cell, r, c });
+    }
+  }
+
+  const RADIUS  = 3.5;
+  const MAX_DEG = 38;
+  let simX = COLS / 2, simY = ROWS / 2;
+  let simTX = Math.random() * COLS, simTY = Math.random() * ROWS;
+  let userX = null, userY = null;
+
+  const header = document.querySelector('header');
+  header.addEventListener('mousemove', e => {
+    const rect = header.getBoundingClientRect();
+    const cw   = rect.width  / COLS;
+    const ch   = rect.height / ROWS;
+    userX = (e.clientX - rect.left) / cw;
+    userY = (e.clientY - rect.top)  / ch;
+  });
+  header.addEventListener('mouseleave', () => { userX = null; userY = null; });
+
+  function tilt(focusC, focusR) {
+    cells.forEach(({ el, r, c }) => {
+      const dist = Math.hypot(c - focusC, r - focusR);
+      if (dist <= RADIUS) {
+        const pct   = 1 - dist / RADIUS;
+        const angle = pct * MAX_DEG;
+        const dx    = c - focusC, dy = r - focusR;
+        const rx    = -dy * angle / RADIUS;
+        const ry    =  dx * angle / RADIUS;
+        el.style.transform   = `perspective(300px) rotateX(${rx}deg) rotateY(${ry}deg)`;
+        el.style.background  = `rgba(249,115,22,${pct * 0.18})`;
+        el.style.borderColor = `rgba(249,115,22,${pct * 0.35})`;
+      } else {
+        el.style.transform   = '';
+        el.style.background  = '';
+        el.style.borderColor = '';
+      }
+    });
+  }
+
+  let last = 0;
+  (function loop(ts) {
+    if (ts - last > 16) {
+      last = ts;
+      if (userX !== null) {
+        tilt(userX, userY);
+      } else {
+        simX  += (simTX - simX)  * 0.02;
+        simY  += (simTY - simY)  * 0.02;
+        if (Math.hypot(simX - simTX, simY - simTY) < 0.3) {
+          simTX = Math.random() * COLS;
+          simTY = Math.random() * ROWS;
+        }
+        tilt(simX, simY);
+      }
+    }
+    requestAnimationFrame(loop);
+  })(0);
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   SCROLL-REVEAL TAGLINE (ScrollReveal word-by-word port)
+═══════════════════════════════════════════════════════════ */
+(function buildTagline() {
+  const text  = 'Pick a game. Start playing. No sign-up, no download, just arcade.';
+  const el    = document.getElementById('tagline');
+  const words = text.split(' ');
+  el.innerHTML = words.map(w => `<span class="word">${w}</span>`).join(' ');
+
+  const spans = el.querySelectorAll('.word');
+  const reveal = () => spans.forEach((s, i) => setTimeout(() => s.classList.add('visible'), 120 + i * 55));
+
+  if (typeof IntersectionObserver === 'function') {
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) { reveal(); obs.disconnect(); }
+    }, { threshold: 0.5 });
+    obs.observe(el);
+  } else {
+    // Fallback: reveal immediately so words are never left invisible
+    reveal();
+  }
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   MARQUEE STRIP
+═══════════════════════════════════════════════════════════ */
+(function buildMarquee() {
+  const track  = document.getElementById('marqueeTrack');
+  const items  = GAMES.map(g => ({ emoji: g.emoji, title: g.title, path: g.path }));
+  // Duplicate for seamless loop
+  const all    = [...items, ...items];
+  all.forEach((g, i) => {
+    const a = document.createElement('a');
+    a.href  = g.path;
+    a.className = 'marquee-item';
+    a.innerHTML = `<span>${g.emoji}</span>${g.title}${i < all.length - 1 ? '<span class="marquee-dot"></span>' : ''}`;
+    track.appendChild(a);
+  });
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   CARD BORDER GLOW (MagicBento mouse-tracking port)
+═══════════════════════════════════════════════════════════ */
+function attachBorderGlow(card) {
+  card.addEventListener('mousemove', e => {
+    const rect = card.getBoundingClientRect();
+    const x    = e.clientX - rect.left;
+    const y    = e.clientY - rect.top;
+    card.style.setProperty('--glow-x', x + 'px');
+    card.style.setProperty('--glow-y', y + 'px');
+    card.style.setProperty('--glow-opacity', '1');
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.setProperty('--glow-opacity', '0');
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STATE & RENDER
+═══════════════════════════════════════════════════════════ */
+let activeFilter = 'all';
+let searchQuery  = '';
+
+function buildCard(g) {
+  const card = document.createElement('a');
+  card.className = 'game-card' + (g.featured ? ' featured' : '');
+  card.href = g.path;
+
+  card.innerHTML = `
+    <div class="card-accent" style="background:linear-gradient(90deg,${g.color},${g.color}66)"></div>
+    <div class="card-thumb">
+      <div class="card-thumb-bg" style="background:radial-gradient(circle at center,${g.color} 0%,transparent 75%)"></div>
+      <span class="card-emoji">${g.emoji}</span>
+      <div class="play-btn">
+        <svg viewBox="0 0 16 16"><path d="M4 2l10 6-10 6z"/></svg>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="card-title">${g.title}</div>
+      <div class="card-meta">${g.tags.map(t=>`<span class="card-tag">${t}</span>`).join('')}</div>
+      <p class="card-desc">${g.desc}</p>
+    </div>
+  `;
+
+  attachBorderGlow(card);
+  return card;
+}
+
+function render() {
+  const grid = document.getElementById('gameGrid');
+  grid.innerHTML = '';
+
+  const visible = GAMES.filter(g => {
+    const tagMatch  = activeFilter === 'all' || g.tags.includes(activeFilter);
+    const textMatch = g.title.toLowerCase().includes(searchQuery) ||
+                      g.desc.toLowerCase().includes(searchQuery)  ||
+                      g.tags.some(t => t.includes(searchQuery));
+    return tagMatch && textMatch;
+  });
+
+  document.getElementById('emptyState').classList.toggle('visible', visible.length === 0);
+  document.getElementById('resultsCount').textContent =
+    visible.length === 1 ? '1 Game' : `${visible.length} Games`;
+
+  // Featured first, rest sorted by title
+  const sorted = [
+    ...visible.filter(g => g.featured),
+    ...visible.filter(g => !g.featured)
+  ];
+  sorted.forEach(g => grid.appendChild(buildCard(g)));
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EVENTS
+═══════════════════════════════════════════════════════════ */
+document.getElementById('filterBar').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeFilter = btn.dataset.filter;
+  render();
+});
+
+document.getElementById('searchInput').addEventListener('input', e => {
+  searchQuery = e.target.value.toLowerCase().trim();
+  render();
+});
+
+const scrollTopBtn = document.getElementById('scrollTop');
+window.addEventListener('scroll', () => {
+  scrollTopBtn.classList.toggle('visible', window.scrollY > 300);
+});
+scrollTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Space Invaders</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<!-- ARCADE-NAV (injected) -->
+<a href="../index.html" id="arcadeBack" aria-label="Back to arcade"
+   style="position:fixed;top:14px;left:14px;z-index:2147483647;display:flex;align-items:center;gap:7px;
+          padding:8px 14px 8px 11px;font-family:'DM Sans',system-ui,sans-serif;font-size:13px;font-weight:600;
+          letter-spacing:.5px;color:#e2e8f0;text-decoration:none;background:rgba(19,19,26,.82);
+          border:1.5px solid #1e1e2e;border-radius:12px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+          box-shadow:0 4px 18px rgba(0,0,0,.4);transition:border-color .2s,transform .15s,box-shadow .2s;">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2.4"
+       stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M15 18l-6-6 6-6"/></svg>
+  <span>Arcade</span>
+</a>
+<style>
+  #arcadeBack:hover{border-color:#f97316;transform:translateY(-1px);box-shadow:0 6px 22px rgba(249,115,22,.25);}
+  @media (max-width:520px){#arcadeBack span{display:none;} #arcadeBack{padding:9px;}}
+  @media print{#arcadeBack{display:none;}}
+</style>
+<!-- /ARCADE-NAV -->
+
+  <div class="container">
+    <h1>SPACE INVADERS</h1>
+
+    <div class="hud">
+      <div class="hud-item">
+        <span class="hud-label">SCORE</span>
+        <span class="hud-value" id="score-display">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">WAVE</span>
+        <span class="hud-value" id="wave-display">1</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">LIVES</span>
+        <span class="hud-value" id="lives-display">♥♥♥</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">BEST</span>
+        <span class="hud-value" id="best-display">0</span>
+      </div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="640" height="560"></canvas>
+      <div class="overlay" id="overlay">
+        <div class="overlay-title" id="overlay-title">SPACE INVADERS</div>
+        <div class="overlay-sub" id="overlay-sub">Clear the fleet before it reaches you</div>
+        <button id="start-btn">START</button>
+      </div>
+    </div>
+
+    <div id="mobile-controls">
+      <button class="mob-btn" id="btn-left">◀</button>
+      <button class="mob-btn fire" id="btn-fire">FIRE</button>
+      <button class="mob-btn" id="btn-right">▶</button>
+    </div>
+
+    <p class="hint">← → MOVE &nbsp;·&nbsp; SPACE FIRE &nbsp;·&nbsp; P PAUSE</p>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

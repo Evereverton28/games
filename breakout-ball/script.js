@@ -1,3 +1,24 @@
+/* ─── Safe storage shim (falls back to in-memory if localStorage is blocked) ─── */
+(function () {
+  try {
+    var t = "__ls_test__";
+    window.localStorage.setItem(t, "1");
+    window.localStorage.removeItem(t);
+  } catch (e) {
+    var _mem = {};
+    var safe = {
+      getItem: function (k) { return Object.prototype.hasOwnProperty.call(_mem, k) ? _mem[k] : null; },
+      setItem: function (k, v) { _mem[k] = String(v); },
+      removeItem: function (k) { delete _mem[k]; },
+      clear: function () { _mem = {}; },
+      key: function (i) { return Object.keys(_mem)[i] || null; },
+      get length() { return Object.keys(_mem).length; }
+    };
+    try { Object.defineProperty(window, "localStorage", { value: safe, configurable: true }); }
+    catch (e2) { window.localStorage = safe; }
+  }
+})();
+
 const canvas = document.getElementById('gc');
 const ctx = canvas.getContext('2d');
 const overlay = document.getElementById('overlay');

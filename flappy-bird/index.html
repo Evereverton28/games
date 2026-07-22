@@ -7,6 +7,24 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- ARCADE-NAV (injected) -->
+<a href="../index.html" id="arcadeBack" aria-label="Back to arcade"
+   style="position:fixed;top:14px;left:14px;z-index:2147483647;display:flex;align-items:center;gap:7px;
+          padding:8px 14px 8px 11px;font-family:'DM Sans',system-ui,sans-serif;font-size:13px;font-weight:600;
+          letter-spacing:.5px;color:#e2e8f0;text-decoration:none;background:rgba(19,19,26,.82);
+          border:1.5px solid #1e1e2e;border-radius:12px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+          box-shadow:0 4px 18px rgba(0,0,0,.4);transition:border-color .2s,transform .15s,box-shadow .2s;">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2.4"
+       stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M15 18l-6-6 6-6"/></svg>
+  <span>Arcade</span>
+</a>
+<style>
+  #arcadeBack:hover{border-color:#f97316;transform:translateY(-1px);box-shadow:0 6px 22px rgba(249,115,22,.25);}
+  @media (max-width:520px){#arcadeBack span{display:none;} #arcadeBack{padding:9px;}}
+  @media print{#arcadeBack{display:none;}}
+</style>
+<!-- /ARCADE-NAV -->
+
   <div class="container">
     <h1>FLAPPY BIRD</h1>
     <div class="hud">

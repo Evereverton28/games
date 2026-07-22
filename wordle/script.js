@@ -33,6 +33,10 @@ changeDifficultyBtn.addEventListener("click", () => {
 
 function startGame(level) {
   const pool = TIERS[level];
+  if (!pool || !pool.length) {
+    // Word list not ready yet (e.g. words.js still loading) — bail gracefully
+    return;
+  }
   ANSWER = pool[Math.floor(Math.random() * pool.length)];
 
   currentRow = 0;

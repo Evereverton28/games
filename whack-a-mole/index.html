@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Whack-a-Mole</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<!-- ARCADE-NAV (injected) -->
+<a href="../index.html" id="arcadeBack" aria-label="Back to arcade"
+   style="position:fixed;top:14px;left:14px;z-index:2147483647;display:flex;align-items:center;gap:7px;
+          padding:8px 14px 8px 11px;font-family:'DM Sans',system-ui,sans-serif;font-size:13px;font-weight:600;
+          letter-spacing:.5px;color:#e2e8f0;text-decoration:none;background:rgba(19,19,26,.82);
+          border:1.5px solid #1e1e2e;border-radius:12px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+          box-shadow:0 4px 18px rgba(0,0,0,.4);transition:border-color .2s,transform .15s,box-shadow .2s;">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2.4"
+       stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M15 18l-6-6 6-6"/></svg>
+  <span>Arcade</span>
+</a>
+<style>
+  #arcadeBack:hover{border-color:#f97316;transform:translateY(-1px);box-shadow:0 6px 22px rgba(249,115,22,.25);}
+  @media (max-width:520px){#arcadeBack span{display:none;} #arcadeBack{padding:9px;}}
+  @media print{#arcadeBack{display:none;}}
+</style>
+<!-- /ARCADE-NAV -->
+
+  <div class="container">
+    <h1>WHACK-A-MOLE</h1>
+
+    <div class="hud">
+      <div class="hud-item">
+        <span class="hud-label">SCORE</span>
+        <span class="hud-value" id="score-display">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">TIME</span>
+        <span class="hud-value" id="time-display">30</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">STREAK</span>
+        <span class="hud-value" id="streak-display">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">BEST</span>
+        <span class="hud-value" id="best-display">0</span>
+      </div>
+    </div>
+
+    <div class="board-wrap">
+      <div id="grid"></div>
+      <div class="overlay" id="overlay">
+        <div class="overlay-title" id="overlay-title">WHACK-A-MOLE</div>
+        <div class="overlay-sub" id="overlay-sub">Bop the moles — dodge the bombs 💣</div>
+        <button id="start-btn">START</button>
+      </div>
+    </div>
+
+    <p class="hint">Click / tap a mole to whack it &nbsp;·&nbsp; hitting a 💣 costs points</p>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
