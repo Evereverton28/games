@@ -653,7 +653,7 @@
       </div>
       <div class="stat-divider"></div>
       <div class="stat">
-        <div class="stat-num">5</div>
+        <div class="stat-num" id="statCats">0</div>
         <div class="stat-label">Categories</div>
       </div>
       <div class="stat-divider"></div>
@@ -719,26 +719,26 @@
    GAME DATA
 ═══════════════════════════════════════════════════════════ */
 const GAMES = [
-  { id:'chess',         title:'Chess',         emoji:'♟️', desc:'Classic chess with full piece movement, check detection, and an AI opponent.',              tags:['strategy'],         color:'#f97316', path:'chess/index.html',         featured:false },
-  { id:'checkers',      title:'Checkers',       emoji:'🔴', desc:'Jump, capture, and king your pieces in this timeless board game.',                          tags:['strategy'],         color:'#ef4444', path:'checkers/index.html' },
-  { id:'tic-tac-toe',   title:'Tic-Tac-Toe',   emoji:'✖️', desc:'X vs O — a perfect warm-up or a test of pattern recognition.',                             tags:['strategy','puzzle'], color:'#38bdf8', path:'tic-tac-toe/index.html' },
-  { id:'wordle',        title:'Wordle',         emoji:'🟩', desc:'Guess the five-letter word in six tries. New word every round.',                            tags:['word','puzzle'],    color:'#22c55e', path:'wordle/index.html' },
-  { id:'sudoku',        title:'Sudoku',         emoji:'🔢', desc:'Fill the 9×9 grid. Three difficulty levels with hint assistance.',                          tags:['puzzle'],           color:'#a78bfa', path:'sudoku/index.html' },
-  { id:'minesweeper',   title:'Minesweeper',    emoji:'💣', desc:'Clear the board without detonating a mine. Logic under pressure.',                          tags:['puzzle'],           color:'#f97316', path:'minesweeper/index.html' },
-  { id:'2048',          title:'2048',           emoji:'🟦', desc:'Slide tiles and merge numbers to reach the elusive 2048 tile.',                             tags:['puzzle'],           color:'#38bdf8', path:'2048/index.html' },
-  { id:'memory-match',  title:'Memory Match',   emoji:'🃏', desc:'Flip cards and match pairs. Tests your short-term memory across three difficulty levels.',  tags:['puzzle'],           color:'#f59e0b', path:'memory-match/index.html' },
-  { id:'colour-sort',   title:'Colour Sort',    emoji:'🎨', desc:'Sort coloured liquid into matching tubes. Deceptively tricky.',                             tags:['puzzle'],           color:'#ec4899', path:'colour-sort/index.html' },
-  { id:'snake',         title:'Snake',          emoji:'🐍', desc:"Grow your snake, eat the food, and don't bite yourself.",                                   tags:['arcade'],           color:'#22c55e', path:'snake/index.html' },
-  { id:'pong',          title:'Pong',           emoji:'🏓', desc:'The original arcade hit. Two paddles, one ball, infinite rivalry.',                         tags:['arcade'],           color:'#38bdf8', path:'pong/index.html' },
-  { id:'breakout-ball', title:'Breakout',       emoji:'🧱', desc:'Smash bricks with a bouncing ball and paddle. Retro reflex action.',                        tags:['arcade'],           color:'#f97316', path:'breakout-ball/index.html' },
-  { id:'flappy-bird',   title:'Flappy Bird',    emoji:'🐦', desc:'Tap to stay airborne and thread the gap between the pipes.',                                tags:['arcade'],           color:'#facc15', path:'flappy-bird/index.html' },
-  { id:'dinosaur',      title:'Dinosaur Run',   emoji:'🦕', desc:'Jump over cacti and duck under pterodactyls in the endless desert.',                        tags:['arcade'],           color:'#22c55e', path:'dinosaur/index.html' },
-  { id:'crossy-road',   title:'Crossy Road',    emoji:'🐔', desc:'Hop across traffic and rivers without getting squashed.',                                   tags:['arcade'],           color:'#f97316', path:'crossy-road/index.html' },
-  { id:'tetris',        title:'Tetris',         emoji:'🟦', desc:'Stack falling tetrominoes, clear lines, and chase the level. Hold, ghost, and hard drop included.', tags:['puzzle','arcade'], color:'#38bdf8', path:'tetris/index.html' },
-  { id:'space-invaders',title:'Space Invaders', emoji:'👾', desc:'Blast the descending alien fleet, hide behind bunkers, and survive escalating waves.',        tags:['arcade'],           color:'#a78bfa', path:'space-invaders/index.html' },
-  { id:'whack-a-mole',  title:'Whack-a-Mole',   emoji:'🔨', desc:'Bop moles for points and grab the gold ones — but dodge the bombs. 30 seconds on the clock.',   tags:['arcade'],           color:'#f97316', path:'whack-a-mole/index.html' },
-  { id:'lights-out',    title:'Lights Out',     emoji:'💡', desc:'Flip tiles to switch every light off. 10 levels, real hints, and a growing grid.',              tags:['puzzle'],           color:'#facc15', path:'lights-out/index.html' },
-  { id:'highway-racing',title:'Highway Blitz',  emoji:'🚗', desc:'Lane-snap through 4 escalating phases. Collect coins, dodge traffic, survive the storm.',   tags:['racing','arcade'],  color:'#38bdf8', path:'highway-racing/index.html', featured:true },
+  { id:'highway-racing',title:'Highway Blitz',  emoji:'🏎️', desc:'Lane-hop through traffic across four phases: day, dusk, night and a storm. Nitro, shields and near-miss bonuses.', tags:['racing','arcade'], color:'#38bdf8', path:'highway-racing/index.html', featured:true },
+  { id:'chess',         title:'Chess',         emoji:'♟️', desc:'Full rules including castling, en passant and promotion. Three computer strengths or two players.', tags:['strategy'],         color:'#f97316', path:'chess/index.html',         featured:false },
+  { id:'checkers',      title:'Checkers',       emoji:'🔴', desc:'Mandatory captures, multi-jumps and kings. Play the computer at three strengths or a friend.',  tags:['strategy'],         color:'#ef4444', path:'checkers/index.html' },
+  { id:'tic-tac-toe',   title:'Tic-Tac-Toe',   emoji:'✖️', desc:'X vs O against the computer or a friend. Hard mode never loses.',                             tags:['strategy','puzzle'], color:'#38bdf8', path:'tic-tac-toe/index.html' },
+  { id:'wordle',        title:'Wordle',         emoji:'🟩', desc:'Guess the five-letter word in six tries. A daily puzzle, unlimited mode, hard mode and stats.', tags:['word','puzzle'],    color:'#22c55e', path:'wordle/index.html' },
+  { id:'sudoku',        title:'Sudoku',         emoji:'🔢', desc:'Fresh puzzles with one solution each. Three levels, pencil notes, hints and best times.',       tags:['puzzle'],           color:'#a78bfa', path:'sudoku/index.html' },
+  { id:'minesweeper',   title:'Minesweeper',    emoji:'💣', desc:'Safe first click, chording and flag mode. Beginner to expert, with best times.',             tags:['puzzle'],           color:'#f97316', path:'minesweeper/index.html' },
+  { id:'2048',          title:'2048',           emoji:'🟦', desc:'Slide tiles and merge numbers to reach 2048, then keep going. Undo included.',              tags:['puzzle'],           color:'#38bdf8', path:'2048/index.html' },
+  { id:'memory-match',  title:'Memory Match',   emoji:'🃏', desc:'Flip cards and match pairs across three grid sizes. Streaks, stars and best times.',        tags:['puzzle'],           color:'#f59e0b', path:'memory-match/index.html' },
+  { id:'colour-sort',   title:'Colour Sort',    emoji:'🎨', desc:'Pour liquid until every tube holds one colour. 60 levels, hidden layers, and a daily puzzle.', tags:['puzzle'],           color:'#ec4899', path:'colour-sort/index.html' },
+  { id:'snake',         title:'Snake',          emoji:'🐍', desc:"Grow your snake and don't bite yourself. Walls or wrap-around, plus golden bonus food.",      tags:['arcade'],           color:'#22c55e', path:'snake/index.html' },
+  { id:'pong',          title:'Pong',           emoji:'🏓', desc:'First to seven against the computer or a friend. Edge hits add angle, rallies add speed.',   tags:['arcade'],           color:'#38bdf8', path:'pong/index.html' },
+  { id:'breakout-ball', title:'Breakout',       emoji:'🧱', desc:'Eight brick layouts, steel blocks and five power-ups including multi-ball and lasers.',       tags:['arcade'],           color:'#f97316', path:'breakout-ball/index.html' },
+  { id:'flappy-bird',   title:'Flappy Bird',    emoji:'🐦', desc:'Tap to stay airborne and thread the pipes. Moving pipes after 20, medals up to platinum.',    tags:['arcade'],           color:'#facc15', path:'flappy-bird/index.html' },
+  { id:'dinosaur',      title:'Dinosaur Run',   emoji:'🦕', desc:'Jump cacti and duck pterodactyls as the run speeds up and night falls.',                     tags:['arcade'],           color:'#22c55e', path:'dinosaur/index.html' },
+  { id:'crossy-road',   title:'Crossy Road',    emoji:'🐔', desc:'Hop across roads, rivers and railways. Ride the logs and keep moving or the eagle gets you.', tags:['arcade'],           color:'#f97316', path:'crossy-road/index.html' },
+  { id:'tetris',        title:'Tetris',         emoji:'🟦', desc:'Modern rotation with wall kicks, hold, ghost piece, five-piece preview and T-spin bonuses.',  tags:['puzzle','arcade'], color:'#38bdf8', path:'tetris/index.html' },
+  { id:'space-invaders',title:'Space Invaders', emoji:'👾', desc:'Hold off a marching fleet that speeds up as it thins. Crumbling bunkers and a mystery UFO.', tags:['arcade'],           color:'#a78bfa', path:'space-invaders/index.html' },
+  { id:'whack-a-mole',  title:'Whack-a-Mole',   emoji:'🔨', desc:'Bop moles for points and grab the gold ones, but dodge the bombs. 30 seconds on the clock.', tags:['arcade'],           color:'#f97316', path:'whack-a-mole/index.html' },
+  { id:'lights-out',    title:'Lights Out',     emoji:'💡', desc:'Switch every light off. 25 levels from 3×3 to 7×7, real hints and star ratings.',           tags:['puzzle'],           color:'#facc15', path:'lights-out/index.html' },
 ];
 
 /* ═══════════════════════════════════════════════════════════
@@ -749,6 +749,7 @@ const GAMES = [
   const cats = new Set();
   GAMES.forEach(g => g.tags.forEach(t => cats.add(t)));
   document.getElementById('statGames').textContent = n;
+  document.getElementById('statCats').textContent  = cats.size;
   const eyebrow = document.getElementById('eyebrowCount');
   eyebrow.innerHTML = `${n} games &nbsp;·&nbsp; browser-native &nbsp;·&nbsp; no installs`;
 })();

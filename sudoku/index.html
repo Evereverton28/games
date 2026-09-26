@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
   <title>Sudoku</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../shared/kit.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <!-- ARCADE-NAV (injected) -->
@@ -27,42 +29,36 @@
 </style>
 <!-- /ARCADE-NAV -->
 
-
-  <div id="ui">
-    <div id="ui-left">
-      <div class="ui-label">Mistakes</div>
-      <div id="mistakesEl">0 / 3</div>
+<main class="page" style="--page-w:560px">
+  <header class="head">
+    <div class="head-title">
+      <h1 class="title">Sudoku</h1>
+      <p class="tagline">Every row, column and box holds 1 to 9 exactly once.</p>
     </div>
-    <div id="titleEl">SUDOKU</div>
-    <div id="ui-right">
-      <div class="ui-label">Time</div>
-      <div id="timeEl">00:00</div>
-    </div>
+    <div class="head-tools"><button class="icon-btn" id="sound"></button></div>
+  </header>
+  <div class="seg" id="diff"><button data-v="easy">Easy</button><button data-v="medium">Medium</button><button data-v="hard">Hard</button></div>
+  <div class="stats">
+    <div class="stat"><span class="v" id="time">0:00</span><span class="l">Time</span></div>
+    <div class="stat"><span class="v" id="left">0</span><span class="l">Cells left</span></div>
+    <div class="stat"><span class="v" id="hints">0</span><span class="l">Hints used</span></div>
+    <div class="stat"><span class="v" id="best">–</span><span class="l">Best</span></div>
   </div>
-
-  <div id="diffBar">
-    <button class="diff active" data-d="easy">Easy</button>
-    <button class="diff" data-d="medium">Medium</button>
-    <button class="diff" data-d="hard">Hard</button>
+  <div class="arena">
+    <div class="board" id="board" role="grid" aria-label="Sudoku grid"></div>
+    <div class="overlay" id="ov" hidden></div>
   </div>
-
-  <div id="boardWrap">
-    <div id="board"></div>
-    <div id="overlay">
-      <div id="msg">SUDOKU</div>
-      <div id="sub">Fill the grid so every row,<br>column and 3×3 box has 1–9</div>
-      <button id="startBtn">New Game ▶</button>
-    </div>
+  <div class="tools">
+    <button class="btn btn-sm" id="undo"><svg class="ico" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/></svg>Undo</button>
+    <button class="btn btn-sm" id="erase"><svg class="ico" viewBox="0 0 24 24"><path d="M20 20H9L4 15l10-10 7 7-8 8"/></svg>Erase</button>
+    <button class="btn btn-sm" id="notes" aria-pressed="false"><svg class="ico" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>Notes</button>
+    <button class="btn btn-sm" id="hint"><svg class="ico" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg>Hint</button>
   </div>
-
-  <div id="numpad"></div>
-  <div id="actions">
-    <button class="action-btn" id="eraseBtn">✕ Erase</button>
-    <button class="action-btn" id="noteBtn">✎ Notes</button>
-    <button class="action-btn" id="hintBtn">💡 Hint (3)</button>
-  </div>
-  <div id="hint">Click a cell · tap a number · N toggles notes</div>
-
-  <script src="script.js"></script>
+  <div class="numpad" id="pad"></div>
+  <div class="row grow"><button class="btn btn-sm" id="new">New puzzle</button></div>
+  <p class="keys"><kbd>1</kbd>–<kbd>9</kbd> place · <kbd>N</kbd> notes · <kbd>⌫</kbd> erase · <kbd>Z</kbd> undo · arrows move</p>
+</main>
+<script src="../shared/kit.js"></script>
+<script src="script.js"></script>
 </body>
 </html>

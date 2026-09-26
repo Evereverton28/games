@@ -1,353 +1,225 @@
-'use strict';
+/* ═══════════════════════════════════════════════════════════
+   DINOSAUR RUN
+═══════════════════════════════════════════════════════════ */
+const { $, clamp, rand, randInt, pick, sfx } = Kit;
+const W = 760, H = 300, GROUND = 250, PX = 3;
+const cv = $('#cv'), ctx = Kit.fitCanvas(cv, W, H), ov = $('#ov');
+const store = Kit.store('dino', { best: 0 });
+const parts = new Kit.Particles();
+const pad = n => String(Math.floor(n)).padStart(5, '0');
+Kit.soundToggle($('#sound'));
 
-const canvas    = document.getElementById('gameCanvas');
-const ctx       = canvas.getContext('2d');
-const overlay   = document.getElementById('overlay');
-const oTitle    = document.getElementById('overlay-title');
-const oSub      = document.getElementById('overlay-sub');
-const startBtn  = document.getElementById('start-btn');
-const scoreEl   = document.getElementById('score-display');
-const hiEl      = document.getElementById('hi-display');
-const scoreCard = document.getElementById('score-card');
-
-const W = canvas.width;
-const H = canvas.height;
-const GROUND = H - 54;
-
-const C = {
-  bg:      '#0a0a0f',
-  surface: '#13131a',
-  border:  '#1e1e2e',
-  text:    '#e2e8f0',
-  muted:   '#64748b',
-  orange:  '#f97316',
-  cyan:    '#38bdf8',
-  green:   '#1D9E75',
+/* ── Pixel sprites ('#' body, 'o' eye/white, '.' empty) ── */
+const SPR = {
+  run1: [
+    '..........######..', '.........##o#####.', '.........########.', '.........########.', '.........#####....', '.........#######..',
+    '#.......#####.....', '#.....#######.....', '##...#########....', '###.##########.#..', '##############....', '.############.....',
+    '..##########......', '...########.......', '....###.##........', '....##...#........', '....#....##.......', '....##............'],
+  run2: [
+    '..........######..', '.........##o#####.', '.........########.', '.........########.', '.........#####....', '.........#######..',
+    '#.......#####.....', '#.....#######.....', '##...#########....', '###.##########.#..', '##############....', '.############.....',
+    '..##########......', '...########.......', '....##..###.......', '....#.....#.......', '....##....#.......', '..........##......'],
+  duck1: [
+    '..................#######.', '#.......##########o#######', '##....####################', '###.#####################.', '######################....',
+    '.###################......', '..#######.#####...........', '...##..#...#..............', '...#....##.##.............'],
+  duck2: [
+    '..................#######.', '#.......##########o#######', '##....####################', '###.#####################.', '######################....',
+    '.###################......', '..#######.#####...........', '....##.#....#.............', '.....#..##..##............'],
+  dead: [
+    '..........######..', '.........#.#.####.', '.........##.#####.', '.........#.#.####.', '.........########.', '.........#######..',
+    '#.......#####.....', '#.....#######.....', '##...#########....', '###.##########.#..', '##############....', '.############.....',
+    '..##########......', '...########.......', '....###.##........', '....##...#........', '....#....##.......', '....##............'],
+  bird1: ['....#.........', '....##........', '..#.###.......', '.#########....', '##############', '....########..', '.....######...', '..............'],
+  bird2: ['..............', '..............', '..#...........', '.#########....', '##############', '....########..', '....###.......', '....##........'],
 };
-
-/* ── Audio ──────────────────────────────────────────────────────────────── */
-let audioCtx = null;
-function getAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  return audioCtx;
-}
-function playSound(freq, type = 'square', dur = 0.1, vol = 0.08) {
-  try {
-    const ac = getAudio(), osc = ac.createOscillator(), g = ac.createGain();
-    osc.connect(g); g.connect(ac.destination);
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, ac.currentTime);
-    g.gain.setValueAtTime(vol, ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + dur);
-    osc.start(ac.currentTime); osc.stop(ac.currentTime + dur);
-  } catch(e) {}
-}
-const Sounds = {
-  jump: () => playSound(260, 'sine',     0.12, 0.09),
-  hit:  () => playSound(120, 'square',   0.25, 0.12),
-  mile: () => playSound(550, 'sine',     0.20, 0.10),
-};
-
-/* ── Particles ──────────────────────────────────────────────────────────── */
-let particles = [];
-function spawnParticles(x, y, col, n = 12) {
-  for (let i = 0; i < n; i++) {
-    const a = Math.random() * Math.PI * 2, sp = 1.5 + Math.random() * 3;
-    particles.push({ x, y, dx: Math.cos(a) * sp, dy: Math.sin(a) * sp, life: 1, col, r: 2 + Math.random() * 3 });
-  }
-}
-function drawParticles() {
-  particles.forEach(p => { p.x += p.dx; p.y += p.dy; p.dy += 0.12; p.life -= 0.035; });
-  particles = particles.filter(p => p.life > 0);
-  particles.forEach(p => {
-    const al = Math.floor(p.life * 200).toString(16).padStart(2, '0');
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
-    ctx.fillStyle = p.col + al; ctx.fill();
-  });
+const cache = {};
+function sprite(name, col) {
+  const k = name + col;
+  if (cache[k]) return cache[k];
+  const rows = SPR[name], c = document.createElement('canvas');
+  c.width = rows[0].length * PX; c.height = rows.length * PX;
+  const x = c.getContext('2d');
+  rows.forEach((r, y) => [...r].forEach((ch, i) => {
+    if (ch === '.') return;
+    x.fillStyle = ch === 'o' ? '#0a0a0f' : col; x.fillRect(i * PX, y * PX, PX, PX);
+  }));
+  return cache[k] = c;
 }
 
-/* ── Screen shake ───────────────────────────────────────────────────────── */
-let shake = { x: 0, y: 0, t: 0 };
-function triggerShake(mag) {
-  shake.x = (Math.random() - 0.5) * mag * 2;
-  shake.y = (Math.random() - 0.5) * mag * 2;
-  shake.t = 8;
+/* ── State ── */
+let G;
+function reset() {
+  G = { state: 'ready', score: 0, speed: 6.2, t: 0, next: 60, obs: [], clouds: [], night: 0, flash: 0,
+        dino: { y: 0, vy: 0, duck: false, ground: true, hold: 0 }, groundOff: 0, bumps: [] };
+  for (let i = 0; i < 4; i++) G.clouds.push({ x: rand(0, W), y: rand(30, 110), s: rand(.2, .5) });
+  for (let i = 0; i < 40; i++) G.bumps.push({ x: rand(0, W), w: randInt(1, 3) * PX, y: randInt(0, 3) * 5 });
+  hud();
+}
+reset();
+
+const input = { jump: false, duck: false };
+function press(k, v) {
+  if (k === 'jump' && v && (G.state === 'ready' || G.state === 'over')) { if (G.state === 'over' && performance.now() - G.overAt < 600) return; return start(); }
+  input[k] = v;
+}
+addEventListener('keydown', e => {
+  if ([' ', 'ArrowUp', 'ArrowDown', 'w', 's'].includes(e.key)) e.preventDefault();
+  if (e.repeat) return;
+  if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') press('jump', true);
+  if (e.key === 'ArrowDown' || e.key === 's') press('duck', true);
+  if (e.key === 'p' || e.key === 'Escape') pause();
+});
+addEventListener('keyup', e => {
+  if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') press('jump', false);
+  if (e.key === 'ArrowDown' || e.key === 's') press('duck', false);
+});
+cv.addEventListener('pointerdown', e => { e.preventDefault(); press('jump', true); });
+cv.addEventListener('pointerup', () => press('jump', false));
+document.querySelectorAll('.pad button').forEach(b => Kit.holdButton(b, () => press(b.dataset.k, true), () => press(b.dataset.k, false)));
+Kit.onHide(() => { if (G.state === 'play') pause(); });
+
+function pause() {
+  if (G.state === 'play') { G.state = 'paused'; Kit.overlay(ov, { title: 'Paused', actions: [{ label: 'Resume', primary: true, onClick: pause }] }); }
+  else if (G.state === 'paused') { G.state = 'play'; Kit.overlay(ov, null); }
+}
+function start() { reset(); G.state = 'play'; Kit.overlay(ov, null); jump(); }
+
+function jump() {
+  const d = G.dino;
+  if (!d.ground) return;
+  d.vy = -10.6; d.ground = false; d.hold = 12;
+  sfx.tone(520, { type: 'square', dur: .07, vol: .03, slide: 780 });
 }
 
-/* ── Game state ─────────────────────────────────────────────────────────── */
-let state = 'idle', score = 0, hiScore = 0, speed = 6, frame = 0, milestone = 100, flashTimer = 0;
-
-/* ── Dino ───────────────────────────────────────────────────────────────── */
-const dino = { x: 90, y: GROUND, w: 44, h: 54, vy: 0, jumping: false, ducking: false, trail: [], legPhase: 0 };
-const DUCK_H = 30, JUMP_V = -16.5, GRAVITY = 0.75;
-
-function dinoJump() {
-  if (!dino.jumping && state === 'running') {
-    dino.vy = JUMP_V; dino.jumping = true;
-    Sounds.jump();
-    spawnParticles(dino.x + dino.w / 2, GROUND, C.cyan, 8);
-  }
-}
-
-function updateDino() {
-  dino.vy += GRAVITY; dino.y += dino.vy;
-  if (dino.y >= GROUND) { dino.y = GROUND; dino.vy = 0; dino.jumping = false; }
-  const h = dino.ducking ? DUCK_H : dino.h;
-  dino.trail.push({ x: dino.x + dino.w / 2, y: dino.y - h / 2 });
-  if (dino.trail.length > 8) dino.trail.shift();
-  if (!dino.jumping) dino.legPhase += speed * 0.12;
-}
-
-function rr(x, y, w, h, r, fill) {
-  ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fillStyle = fill; ctx.fill();
-}
-
-function drawLegs(x, baseY, width, duck) {
-  if (dino.jumping) {
-    rr(x + 4, baseY - 16, 8, 12, 4, C.text);
-    rr(x + width - 12, baseY - 16, 8, 12, 4, C.text);
-    return;
-  }
-  const legH = duck ? 12 : 18;
-  const lL = Math.sin(dino.legPhase) * (duck ? 6 : 9);
-  const lR = Math.sin(dino.legPhase + Math.PI) * (duck ? 6 : 9);
-  rr(x + 4, baseY - legH + lL, 8, legH - lL, 4, C.text);
-  rr(x + width - 12, baseY - legH + lR, 8, legH - lR, 4, C.text);
-}
-
-function drawDino() {
-  const h = dino.ducking ? DUCK_H : dino.h;
-  const topY = dino.y - h;
-
-  dino.trail.forEach((pt, i) => {
-    const prog = i / dino.trail.length;
-    const al = Math.floor(prog * 0.3 * 255).toString(16).padStart(2, '0');
-    ctx.beginPath(); ctx.arc(pt.x, pt.y, (dino.w / 2.5) * prog, 0, Math.PI * 2);
-    ctx.fillStyle = C.cyan + al; ctx.fill();
-  });
-
-  if (dino.ducking) {
-    rr(dino.x, dino.y - DUCK_H, dino.w + 14, DUCK_H, 8, C.text);
-    ctx.beginPath(); ctx.arc(dino.x + dino.w + 10, dino.y - DUCK_H + 10, 4, 0, Math.PI * 2);
-    ctx.fillStyle = C.orange; ctx.fill();
-    drawLegs(dino.x + 6, dino.y, dino.w + 2, true);
+/* ── Update ── */
+function spawn() {
+  const s = G.score;
+  if (s > 350 && Math.random() < .28) {
+    const h = pick(s > 700 ? [GROUND - 30, GROUND - 58, GROUND - 92] : [GROUND - 30, GROUND - 58]);
+    G.obs.push({ type: 'bird', x: W + 20, y: h - 24, w: 42, h: 24, flap: 0, vx: rand(.3, 1.1) });
   } else {
-    rr(dino.x + 4, topY + 18, dino.w - 8, h - 18, 8, C.text);
-    rr(dino.x + 12, topY + 4, dino.w - 22, 20, 4, C.text);
-    rr(dino.x + 8, topY, dino.w - 4, 22, 6, C.text);
-    rr(dino.x + dino.w - 10, topY + 8, 14, 10, 4, C.text);
-    ctx.beginPath(); ctx.arc(dino.x + dino.w - 12, topY + 7, 4.5, 0, Math.PI * 2);
-    ctx.fillStyle = C.orange; ctx.fill();
-    ctx.beginPath(); ctx.arc(dino.x + dino.w - 11, topY + 6.5, 2, 0, Math.PI * 2);
-    ctx.fillStyle = C.surface; ctx.fill();
-    rr(dino.x + dino.w - 18, topY + 28, 10, 5, 2, C.muted);
-    drawLegs(dino.x + 4, dino.y, dino.w - 8, false);
+    const big = Math.random() < .45, n = s < 120 ? 1 : randInt(1, s > 500 ? 3 : 2);
+    const cw = big ? 20 : 14, ch = big ? 46 : 32;
+    G.obs.push({ type: 'cactus', x: W + 20, y: GROUND - ch, w: n * (cw + 3), h: ch, n, big, seed: Math.random() });
   }
+  // Always leave room to land and jump again: a full jump covers about 34 frames of travel
+  const tighten = 1 - Math.min(.55, G.score / 2500);
+  G.next = G.speed * 36 + rand(70, 320) * tighten;
 }
+function update(dt) {
+  G.t += dt;
+  G.speed = Math.min(15, G.speed + .0014 * dt);
+  const v = G.speed * dt;
+  const prev = Math.floor(G.score);
+  G.score += v * .025;
+  if (Math.floor(G.score / 100) > Math.floor(prev / 100) && G.score > 1) { G.flash = 60; sfx.arp([784, 1175], { type: 'square', gap: .08, dur: .1, vol: .03 }); }
+  // day/night: every 700 points the sky flips for 300 points
+  const cyc = G.score % 1000;
+  const targetNight = G.score > 600 && cyc > 600 ? 1 : 0;
+  G.night += (targetNight - G.night) * .01 * dt;
 
-/* ── Obstacles ──────────────────────────────────────────────────────────── */
-let obstacles = [], nextObsDist = 0;
-
-function spawnObstacle() {
-  if (Math.random() < 0.25) {
-    const flyH = GROUND - 80 - Math.random() * 70;
-    obstacles.push({ type: 'ptero', x: W + 20, y: flyH, w: 56, h: 30, wp: 0 });
-  } else {
-    const v = Math.floor(Math.random() * 3);
-    const sizes = [{ w: 20, h: 46 }, { w: 32, h: 52 }, { w: 48, h: 42 }];
-    const s = sizes[v];
-    obstacles.push({ type: 'cactus', x: W + 20, y: GROUND - s.h, w: s.w, h: s.h, v });
+  const d = G.dino;
+  if (input.jump) { if (d.ground) jump(); else if (d.hold > 0 && d.vy < 0) { d.vy -= .45 * dt; } }
+  d.hold -= dt;
+  d.duck = input.duck && d.ground;
+  if (!d.ground) {
+    d.vy += (input.duck ? 1.6 : .62) * dt;
+    d.y += d.vy * dt;
+    if (d.y >= 0) { d.y = 0; d.vy = 0; d.ground = true; parts.burst(92, GROUND, '#64748b', 5, { speed: 1.5, gravity: .05 }); }
   }
-}
 
-function updateObstacles() {
-  if (nextObsDist <= 0) {
-    spawnObstacle();
-    nextObsDist = 380 + Math.random() * 380 - Math.min(speed * 10, 150);
+  G.next -= v;
+  if (G.next <= 0) spawn();
+  for (const o of G.obs) { o.x -= v + (o.vx || 0) * dt; if (o.type === 'bird') o.flap += dt; }
+  G.obs = G.obs.filter(o => o.x + o.w > -20);
+  for (const c of G.clouds) { c.x -= c.s * dt; if (c.x < -80) { c.x = W + rand(0, 200); c.y = rand(30, 110); } }
+  G.groundOff = (G.groundOff + v) % W;
+  for (const b of G.bumps) { b.x -= v; if (b.x < -10) b.x += W + 10; }
+
+  // collision with hitboxes a little tighter than the art
+  const box = d.duck ? { x: 76, y: GROUND - 27, w: 70, h: 24 } : { x: 80, y: GROUND - 52 + d.y, w: 38, h: 48 };
+  for (const o of G.obs) {
+    const ob = { x: o.x + 4, y: o.y + 4, w: o.w - 8, h: o.h - 6 };
+    if (box.x < ob.x + ob.w && box.x + box.w > ob.x && box.y < ob.y + ob.h && box.y + box.h > ob.y) return crash();
   }
-  nextObsDist -= speed;
-  obstacles.forEach(o => { o.x -= speed; if (o.type === 'ptero') o.wp += 0.15; });
-  obstacles = obstacles.filter(o => o.x > -80);
+  G.flash = Math.max(0, G.flash - dt);
+  parts.update(dt);
+  hud();
 }
-
-function drawCactus(o) {
-  const col = C.orange;
-  if (o.v === 0) {
-    rr(o.x + 6, o.y, 8, o.h, 4, col);
-    rr(o.x, o.y + 12, 8, 16, 3, col);
-    rr(o.x, o.y + 12, 6, 8, 3, col);
-    rr(o.x + 14, o.y + 18, 8, 14, 3, col);
-    rr(o.x + 14, o.y + 18, 6, 8, 3, col);
-  } else if (o.v === 1) {
-    rr(o.x + 4, o.y, 8, o.h, 4, col);
-    rr(o.x + 20, o.y + 8, 8, o.h - 8, 4, col);
-    rr(o.x, o.y + 16, 12, 8, 3, col);
-    rr(o.x + 28, o.y + 22, 10, 8, 3, col);
-  } else {
-    rr(o.x, o.y + 6, 7, o.h - 6, 3, col);
-    rr(o.x + 18, o.y, 8, o.h, 4, col);
-    rr(o.x + 36, o.y + 8, 7, o.h - 8, 3, col);
-    rr(o.x + 8, o.y + 14, 10, 7, 3, col);
-    rr(o.x + 26, o.y + 18, 10, 7, 3, col);
-  }
-}
-
-function drawPtero(o) {
-  const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
-  const wing = Math.sin(o.wp) * 10;
-  ctx.beginPath(); ctx.ellipse(cx, cy, 16, 9, 0, 0, Math.PI * 2);
-  ctx.fillStyle = C.cyan; ctx.fill();
-  ctx.beginPath(); ctx.moveTo(cx + 16, cy); ctx.lineTo(cx + 30, cy - 4); ctx.lineTo(cx + 16, cy + 3);
-  ctx.fillStyle = C.cyan; ctx.fill();
-  ctx.beginPath(); ctx.moveTo(cx + 10, cy - 8); ctx.lineTo(cx + 22, cy - 18); ctx.lineTo(cx + 16, cy - 4);
-  ctx.fillStyle = C.cyan; ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - 4); ctx.quadraticCurveTo(cx - 20, cy - 20 - wing, cx - 32, cy - 8 - wing);
-  ctx.quadraticCurveTo(cx - 20, cy + 4, cx, cy + 4);
-  ctx.fillStyle = C.cyan; ctx.fill();
-  ctx.beginPath(); ctx.arc(cx + 12, cy - 2, 3, 0, Math.PI * 2); ctx.fillStyle = C.bg; ctx.fill();
-}
-
-function drawObstacles() {
-  obstacles.forEach(o => { if (o.type === 'cactus') drawCactus(o); else drawPtero(o); });
-}
-
-/* ── Ground ─────────────────────────────────────────────────────────────── */
-let groundOffset = 0;
-const groundDots = Array.from({ length: 30 }, () => ({
-  x: Math.random() * W,
-  h: 2 + Math.random() * 4,
-  w: 4 + Math.random() * 18,
-}));
-
-function drawGround() {
-  ctx.fillStyle = C.border; ctx.fillRect(0, GROUND + 4, W, 2);
-  ctx.fillStyle = C.surface; ctx.fillRect(0, GROUND + 6, W, H - GROUND - 6);
-  groundDots.forEach(d => {
-    const x = ((d.x - groundOffset) % W + W) % W;
-    rr(x, GROUND + 10, d.w, d.h, 2, C.border);
+function crash() {
+  G.state = 'over'; G.overAt = performance.now();
+  sfx.tone(160, { type: 'square', dur: .3, vol: .05, slide: 70 });
+  parts.burst(100, GROUND - 30 + G.dino.y, '#e2e8f0', 16, { speed: 3 });
+  const s = Math.floor(G.score), best = store.best('best', s);
+  hud();
+  Kit.overlay(ov, {
+    title: 'Game over', grad: best && s > 0, text: `You ran at up to ${(G.speed / 6.2).toFixed(1)}× speed.`,
+    stats: [[pad(s), 'Score'], [pad(store.data.best), 'Best']], note: best && s > 0 ? 'New best score' : '',
+    actions: [{ label: 'Run again', primary: true, onClick: start }],
   });
 }
-
-/* ── Stars ──────────────────────────────────────────────────────────────── */
-const stars = Array.from({ length: 60 }, () => ({
-  x: Math.random() * W, y: Math.random() * (GROUND - 30),
-  r: Math.random() * 1.2 + 0.3, tw: Math.random() * Math.PI * 2,
-}));
-function drawStars() {
-  stars.forEach(s => {
-    s.tw += 0.03;
-    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(226,232,240,${(0.15 + 0.1 * Math.sin(s.tw)).toFixed(2)})`; ctx.fill();
-  });
+function hud() {
+  const el = $('#score');
+  el.textContent = pad(G.score);
+  el.style.opacity = G.flash > 0 && Math.floor(G.flash / 8) % 2 ? .3 : 1;
+  $('#best').textContent = pad(store.data.best);
+  $('#speed').textContent = (G.speed / 6.2).toFixed(1) + '×';
 }
 
-/* ── Clouds ─────────────────────────────────────────────────────────────── */
-const clouds = Array.from({ length: 5 }, () => ({
-  x: Math.random() * W, y: 30 + Math.random() * 70,
-  w: 60 + Math.random() * 60, sp: 0.4 + Math.random() * 0.4,
-}));
-function drawClouds() {
-  clouds.forEach(c => {
-    c.x -= c.sp; if (c.x < -c.w) c.x = W + c.w;
-    ctx.globalAlpha = 0.12; ctx.fillStyle = C.muted;
-    ctx.beginPath(); ctx.ellipse(c.x, c.y, c.w / 2, 12, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(c.x - c.w * 0.2, c.y + 6, c.w * 0.3, 10, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = 1;
-  });
-}
-
-/* ── Collision ──────────────────────────────────────────────────────────── */
-function checkCollision() {
-  const dh = dino.ducking ? DUCK_H : dino.h;
-  const dw = dino.ducking ? dino.w + 14 : dino.w;
-  const dx1 = dino.x + 10, dy1 = dino.y - dh + 8;
-  const dx2 = dx1 + dw - 20, dy2 = dy1 + dh - 14;
-  for (const o of obstacles) {
-    const pad = 7;
-    if (dx2 > o.x + pad && dx1 < o.x + o.w - pad && dy2 > o.y + pad && dy1 < o.y + o.h - pad) return true;
-  }
-  return false;
-}
-
-/* ── Score ──────────────────────────────────────────────────────────────── */
-function fmt(n) { return String(Math.floor(n)).padStart(5, '0'); }
-function updateScore() {
-  score += speed * 0.05;
-  scoreEl.textContent = fmt(score);
-  if (score > hiScore) { hiScore = score; hiEl.textContent = fmt(hiScore); }
-  if (score >= milestone) {
-    milestone += 100; Sounds.mile(); flashTimer = 20;
-    speed = Math.min(speed + 0.35, 18);
-  }
-  if (flashTimer > 0) { flashTimer--; scoreCard.classList.add('active-x'); }
-  else scoreCard.classList.remove('active-x');
-}
-
-/* ── Draw ───────────────────────────────────────────────────────────────── */
+/* ── Draw ── */
+function mix(a, b, t) { const pa = a.match(/\w\w/g).map(h => parseInt(h, 16)), pb = b.match(/\w\w/g).map(h => parseInt(h, 16)); return `rgb(${pa.map((v, i) => Math.round(v + (pb[i] - v) * t)).join(',')})`; }
 function draw() {
-  ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
-  if (shake.t > 0) {
-    ctx.save(); ctx.translate(shake.x, shake.y);
-    shake.t--; shake.x *= 0.7; shake.y *= 0.7;
+  const n = G.night;
+  ctx.fillStyle = mix('161622', '07070d', n); ctx.fillRect(0, 0, W, H);
+  // stars + moon at night
+  if (n > .05) {
+    ctx.globalAlpha = n;
+    for (let i = 0; i < 30; i++) { const x = (i * 97 + G.t * .05) % W, y = (i * 53) % 150 + 10; ctx.fillStyle = '#e2e8f0'; ctx.fillRect(W - x, y, 2, 2); }
+    ctx.fillStyle = '#f1f5f9'; ctx.beginPath(); ctx.arc(620, 50, 18, 0, 7); ctx.fill();
+    ctx.fillStyle = mix('161622', '07070d', n); ctx.beginPath(); ctx.arc(628, 44, 16, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
   }
-  drawStars(); drawClouds(); drawGround(); drawObstacles(); drawDino(); drawParticles();
-  if (shake.t >= 0 && shake.t < 8) ctx.restore();
-}
-
-/* ── Loop ───────────────────────────────────────────────────────────────── */
-let rafId = null;
-function loop() {
-  frame++;
-  groundOffset = (groundOffset + speed) % W;
-  updateDino(); updateObstacles(); updateScore();
-  if (checkCollision()) { die(); return; }
-  draw();
-  rafId = requestAnimationFrame(loop);
-}
-
-function startGame() {
-  score = 0; speed = 6; frame = 0; milestone = 100; flashTimer = 0;
-  obstacles = []; particles = []; nextObsDist = 300;
-  dino.y = GROUND; dino.vy = 0; dino.jumping = false; dino.ducking = false;
-  dino.trail = []; dino.legPhase = 0;
-  scoreEl.textContent = '00000';
-  scoreCard.classList.remove('active-x');
-  overlay.classList.add('hidden');
-  state = 'running';
-  if (rafId) cancelAnimationFrame(rafId);
-  rafId = requestAnimationFrame(loop);
-}
-
-function die() {
-  state = 'dead';
-  if (rafId) cancelAnimationFrame(rafId);
-  Sounds.hit(); triggerShake(8);
-  spawnParticles(dino.x + dino.w / 2, dino.y - dino.h / 2, C.orange, 20);
-  draw();
-  oTitle.textContent = 'GAME OVER';
-  oSub.textContent = 'SCORE: ' + fmt(score);
-  startBtn.textContent = 'PLAY AGAIN';
-  overlay.classList.remove('hidden');
-}
-
-/* ── Input ──────────────────────────────────────────────────────────────── */
-document.addEventListener('keydown', e => {
-  if (e.code === 'Space' || e.code === 'ArrowUp') {
-    e.preventDefault();
-    if (state === 'running') dinoJump();
+  // clouds
+  ctx.fillStyle = `rgba(100,116,139,${.35 - n * .2})`;
+  for (const c of G.clouds) { ctx.beginPath(); ctx.roundRect(c.x, c.y, 60, 14, 7); ctx.fill(); ctx.beginPath(); ctx.roundRect(c.x + 14, c.y - 8, 30, 14, 7); ctx.fill(); }
+  // ground
+  const gcol = mix('64748b', '94a3b8', n);
+  ctx.fillStyle = gcol; ctx.fillRect(0, GROUND, W, 2);
+  for (const b of G.bumps) ctx.fillRect(b.x, GROUND + 6 + b.y, b.w, 2);
+  const fg = mix('e2e8f0', 'f8fafc', n);
+  // obstacles
+  for (const o of G.obs) {
+    if (o.type === 'cactus') drawCactus(o, '#22c55e');
+    else ctx.drawImage(sprite(Math.floor(o.flap / 12) % 2 ? 'bird1' : 'bird2', '#a78bfa'), o.x, o.y);
   }
-  if (e.code === 'ArrowDown') { e.preventDefault(); if (state === 'running') dino.ducking = true; }
-});
-document.addEventListener('keyup', e => {
-  if (e.code === 'ArrowDown') dino.ducking = false;
-});
-canvas.addEventListener('touchstart', e => {
-  e.preventDefault();
-  if (state === 'running') dinoJump();
-}, { passive: false });
+  // dino
+  const d = G.dino;
+  let spr;
+  if (G.state === 'over') spr = 'dead';
+  else if (d.duck) spr = Math.floor(G.t / 6) % 2 ? 'duck1' : 'duck2';
+  else if (!d.ground || G.state === 'ready') spr = 'run1';
+  else spr = Math.floor(G.t / 5) % 2 ? 'run1' : 'run2';
+  const img = sprite(spr, '#f97316');
+  ctx.drawImage(img, 70, GROUND - img.height + d.y + 1);
+  parts.draw(ctx);
+}
+function drawCactus(o, col) {
+  const cw = o.big ? 20 : 14;
+  for (let i = 0; i < o.n; i++) {
+    const x = o.x + i * (cw + 3), h = o.h - ((i * 7 + Math.floor(o.seed * 10)) % 3) * 4, y = GROUND - h;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.roundRect(x + cw * .3, y, cw * .4, h, 4); ctx.fill();
+    const armY = y + h * .35;
+    ctx.beginPath(); ctx.roundRect(x, armY, cw * .3, 4, 2); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(x, armY - h * .22, cw * .22, h * .22 + 4, 3); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(x + cw * .7, armY + 6, cw * .3, 4, 2); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(x + cw * .78, armY - 4, cw * .22, 14, 3); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(x + cw * .55, y + 4, 2, h - 8);
+  }
+}
 
-startBtn.addEventListener('click', () => { getAudio(); startGame(); });
-
-draw();
+Kit.overlay(ov, {
+  title: 'Dinosaur Run', grad: true, text: 'Jump over cacti and duck under pterodactyls. The run speeds up and night falls.',
+  actions: [{ label: 'Start running', primary: true, onClick: start }],
+});
+Kit.loop(dt => { if (G.state === 'play') update(dt); else parts.update(dt); draw(); });

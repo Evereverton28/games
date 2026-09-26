@@ -2,9 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
   <title>Whack-a-Mole</title>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/kit.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -26,40 +29,28 @@
 </style>
 <!-- /ARCADE-NAV -->
 
-  <div class="container">
-    <h1>WHACK-A-MOLE</h1>
-
-    <div class="hud">
-      <div class="hud-item">
-        <span class="hud-label">SCORE</span>
-        <span class="hud-value" id="score-display">0</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">TIME</span>
-        <span class="hud-value" id="time-display">30</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">STREAK</span>
-        <span class="hud-value" id="streak-display">0</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">BEST</span>
-        <span class="hud-value" id="best-display">0</span>
-      </div>
+<main class="page" style="--page-w:540px">
+  <header class="head">
+    <div class="head-title">
+      <h1 class="title">Whack-a-Mole</h1>
+      <p class="tagline">30 seconds. Bop the moles, grab the gold, never hit a bomb.</p>
     </div>
-
-    <div class="board-wrap">
-      <div id="grid"></div>
-      <div class="overlay" id="overlay">
-        <div class="overlay-title" id="overlay-title">WHACK-A-MOLE</div>
-        <div class="overlay-sub" id="overlay-sub">Bop the moles — dodge the bombs 💣</div>
-        <button id="start-btn">START</button>
-      </div>
-    </div>
-
-    <p class="hint">Click / tap a mole to whack it &nbsp;·&nbsp; hitting a 💣 costs points</p>
+    <div class="head-tools"><button class="icon-btn" id="sound"></button></div>
+  </header>
+  <div class="stats">
+    <div class="stat"><span class="v" id="score">0</span><span class="l">Score</span></div>
+    <div class="stat"><span class="v" id="time">30</span><span class="l">Seconds</span></div>
+    <div class="stat hot"><span class="v" id="combo">×1</span><span class="l">Combo</span></div>
+    <div class="stat"><span class="v" id="best">0</span><span class="l">Best</span></div>
   </div>
-
-  <script src="script.js"></script>
+  <div class="timebar"><div id="bar"></div></div>
+  <div class="arena">
+    <div class="field" id="field"></div>
+    <div class="overlay" id="ov" hidden></div>
+  </div>
+  <p class="keys">Click or tap · keyboard: number pad layout <kbd>7</kbd><kbd>8</kbd><kbd>9</kbd> / <kbd>4</kbd><kbd>5</kbd><kbd>6</kbd> / <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></p>
+</main>
+<script src="../shared/kit.js"></script>
+<script src="script.js"></script>
 </body>
 </html>

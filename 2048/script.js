@@ -1,218 +1,183 @@
-/* ─── Safe storage shim (falls back to in-memory if localStorage is blocked) ─── */
-(function () {
-  try {
-    var t = "__ls_test__";
-    window.localStorage.setItem(t, "1");
-    window.localStorage.removeItem(t);
-  } catch (e) {
-    var _mem = {};
-    var safe = {
-      getItem: function (k) { return Object.prototype.hasOwnProperty.call(_mem, k) ? _mem[k] : null; },
-      setItem: function (k, v) { _mem[k] = String(v); },
-      removeItem: function (k) { delete _mem[k]; },
-      clear: function () { _mem = {}; },
-      key: function (i) { return Object.keys(_mem)[i] || null; },
-      get length() { return Object.keys(_mem).length; }
-    };
-    try { Object.defineProperty(window, "localStorage", { value: safe, configurable: true }); }
-    catch (e2) { window.localStorage = safe; }
-  }
-})();
+/* ═══════════════════════════════════════════════════════════
+   2048
+═══════════════════════════════════════════════════════════ */
+const { $, sfx } = Kit;
+const N = 4;
+const store = Kit.store('2048', { best: 0, saved: null });
+const boardEl = $('#board'), tilesEl = $('#tiles'), ov = $('#ov');
+Kit.soundToggle($('#sound'));
 
-(() => {
-  /* ── State ── */
-  const SIZE = 4;
-  let grid, score, best, gameOver, won;
+// Tile palette: cool dark tiles → warm → accent gradient for the big ones
+const STYLE = {
+  2: ['#1f2233', '#cbd5e1'], 4: ['#252a40', '#e2e8f0'], 8: ['#3b2a22', '#fdba74'], 16: ['#4a2b1a', '#fb923c'],
+  32: ['#5a2a14', '#fff7ed'], 64: ['#7c2d12', '#fff7ed'], 128: ['#0c4a6e', '#e0f2fe'], 256: ['#075985', '#f0f9ff'],
+  512: ['#0369a1', '#ffffff'], 1024: ['#0284c7', '#ffffff'], 2048: ['linear-gradient(135deg,#f97316,#38bdf8)', '#ffffff'],
+};
+let grid, score, won, keepGoing, over, history, nextId, tileEls;
 
-  /* ── DOM refs ── */
-  const tilesEl  = document.getElementById('tiles');
-  const scoreEl  = document.getElementById('score');
-  const bestEl   = document.getElementById('best');
-  const scoreBox = document.getElementById('score-box');
-  const overlay  = document.getElementById('overlay');
-  const overlayMsg = document.getElementById('overlay-msg');
+for (let i = 0; i < N * N; i++) $('#cells').appendChild(document.createElement('div'));
 
-  document.getElementById('btn-new').addEventListener('click', init);
-  document.getElementById('btn-retry').addEventListener('click', init);
+function empty() { return Array.from({ length: N }, () => Array(N).fill(null)); }
+function newGame() {
+  grid = empty(); score = 0; won = false; keepGoing = false; over = false; history = []; nextId = 1;
+  tilesEl.innerHTML = ''; tileEls = new Map();
+  addRandom(); addRandom();
+  Kit.overlay(ov, null);
+  render(); save();
+}
+function addRandom() {
+  const free = [];
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (!grid[r][c]) free.push([r, c]);
+  if (!free.length) return;
+  const [r, c] = Kit.pick(free);
+  grid[r][c] = { id: nextId++, v: Math.random() < .9 ? 2 : 4, isNew: true };
+}
 
-  /* ── Init ── */
-  function init() {
-    grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
-    score = 0;
-    gameOver = false;
-    won = false;
-    best = parseInt(localStorage.getItem('2048-best') || '0', 10);
-    updateScoreDisplay();
-    overlay.classList.add('hidden');
-    addTile();
-    addTile();
-    render();
-  }
-
-  /* ── Tile spawning ── */
-  function emptyCells() {
-    const cells = [];
-    for (let r = 0; r < SIZE; r++)
-      for (let c = 0; c < SIZE; c++)
-        if (grid[r][c] === 0) cells.push([r, c]);
-    return cells;
-  }
-
-  function addTile() {
-    const cells = emptyCells();
-    if (!cells.length) return;
-    const [r, c] = cells[Math.floor(Math.random() * cells.length)];
-    grid[r][c] = Math.random() < 0.9 ? 2 : 4;
-  }
-
-  /* ── Move logic ── */
-  function slideRow(row) {
-    let arr = row.filter(v => v !== 0);
-    let gained = 0;
-    for (let i = 0; i < arr.length - 1; i++) {
-      if (arr[i] === arr[i + 1]) {
-        arr[i] *= 2;
-        gained += arr[i];
-        arr.splice(i + 1, 1);
+function move(dir) {
+  if (over || (won && !keepGoing)) return;
+  const snap = { grid: grid.map(row => row.map(t => t && { id: t.id, v: t.v })), score };
+  const vec = { left: [0, -1], right: [0, 1], up: [-1, 0], down: [1, 0] }[dir];
+  const order = [...Array(N).keys()];
+  const rows = vec[0] === 1 ? order.slice().reverse() : order;
+  const cols = vec[1] === 1 ? order.slice().reverse() : order;
+  let moved = false, gained = 0;
+  grid.forEach(row => row.forEach(t => { if (t) { t.isNew = false; t.merged = false; t.gone = null; } }));
+  const ghosts = [];
+  for (const r of rows) for (const c of cols) {
+    const t = grid[r][c];
+    if (!t) continue;
+    let nr = r, nc = c;
+    while (true) {
+      const tr = nr + vec[0], tc = nc + vec[1];
+      if (tr < 0 || tr >= N || tc < 0 || tc >= N) break;
+      const o = grid[tr][tc];
+      if (!o) { nr = tr; nc = tc; continue; }
+      if (o.v === t.v && !o.merged) {
+        // merge: the moving tile slides into o, then disappears; o doubles
+        grid[r][c] = null;
+        o.v *= 2; o.merged = true; gained += o.v;
+        ghosts.push({ id: t.id, r: tr, c: tc });
+        moved = true; nr = null;
       }
+      break;
     }
-    while (arr.length < SIZE) arr.push(0);
-    return { arr, gained };
+    if (nr === null) continue;
+    if (nr !== r || nc !== c) { grid[nr][nc] = t; grid[r][c] = null; moved = true; }
   }
-
-  function rotate90(g) {
-    // rotate clockwise
-    return g[0].map((_, c) => g.map(row => row[c]).reverse());
+  if (!moved) { Kit.pulse(boardEl, 'nudge'); return; }
+  history.push(snap); if (history.length > 30) history.shift();
+  score += gained;
+  addRandom();
+  render(ghosts, gained);
+  if (gained) { sfx.tone(300 + Math.log2(gained) * 45, { type: 'triangle', dur: .1, vol: .05 }); } else sfx.tone(240, { dur: .04, vol: .025 });
+  const top = maxTile();
+  if (top >= 2048 && !won) { won = true; setTimeout(winPanel, 350); }
+  else if (!canMove()) { over = true; setTimeout(losePanel, 450); }
+  save();
+}
+function canMove() {
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const t = grid[r][c];
+    if (!t) return true;
+    if (c < N - 1 && grid[r][c + 1] && grid[r][c + 1].v === t.v) return true;
+    if (r < N - 1 && grid[r + 1][c] && grid[r + 1][c].v === t.v) return true;
   }
+  return false;
+}
+function maxTile() { let m = 0; grid.forEach(row => row.forEach(t => { if (t) m = Math.max(m, t.v); })); return m; }
 
-  function move(dir) {
-    // Normalise: always slide left after optional rotation
-    let rotations = { left: 0, down: 1, right: 2, up: 3 }[dir];
-    let g = grid.map(r => [...r]);
-    for (let i = 0; i < rotations; i++) g = rotate90(g);
-
-    let moved = false;
-    let totalGained = 0;
-    const mergedPositions = []; // track for animation
-
-    for (let r = 0; r < SIZE; r++) {
-      const { arr, gained } = slideRow(g[r]);
-      if (arr.join() !== g[r].join()) moved = true;
-      g[r] = arr;
-      totalGained += gained;
-      if (gained > 0) {
-        // find merged cell position (after slide)
-        for (let c = 0; c < SIZE; c++) {
-          if (arr[c] !== 0 && arr[c] === gained) {
-            mergedPositions.push([r, c, arr[c]]);
-          }
-        }
-      }
+function pos(r, c) { return `translate(calc(${c} * (100% + var(--gap))), calc(${r} * (100% + var(--gap))))`; }
+function paint(el, v) {
+  const [bg, fg] = STYLE[v] || ['#0f172a', '#fbbf24'];
+  const face = el.firstChild;
+  face.style.background = bg; face.style.color = fg;
+  face.style.setProperty('--fs', v >= 1024 ? 'clamp(22px,7vw,38px)' : v >= 128 ? 'clamp(26px,8vw,44px)' : '');
+  face.style.boxShadow = v >= 128 ? `0 0 ${Math.min(26, Math.log2(v) * 2)}px rgba(56,189,248,.25)` : v >= 8 ? '0 0 12px rgba(249,115,22,.12)' : 'none';
+  face.textContent = v;
+}
+function render(ghosts = [], gained = 0) {
+  const seen = new Set();
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const t = grid[r][c];
+    if (!t) continue;
+    seen.add(t.id);
+    let el = tileEls.get(t.id);
+    if (!el) {
+      el = document.createElement('div'); el.className = 'tile';
+      el.appendChild(document.createElement('div')).className = 'face';
+      tilesEl.appendChild(el); tileEls.set(t.id, el);
     }
-
-    // Rotate back
-    const backRots = (4 - rotations) % 4;
-    for (let i = 0; i < backRots; i++) g = rotate90(g);
-
-    if (!moved) return false;
-
-    grid = g;
-    score += totalGained;
-    if (score > best) {
-      best = score;
-      localStorage.setItem('2048-best', best);
-    }
-    updateScoreDisplay();
-
-    addTile();
-    render();
-    checkEnd();
-    return true;
+    el.style.transform = pos(r, c);
+    el.classList.toggle('new', !!t.isNew);
+    if (t.merged) { el.classList.remove('merged'); void el.offsetWidth; el.classList.add('merged'); setTimeout(() => paint(el, t.v), 90); }
+    else paint(el, t.v);
   }
-
-  /* ── End check ── */
-  function checkEnd() {
-    // Win
-    if (!won) {
-      for (let r = 0; r < SIZE; r++)
-        for (let c = 0; c < SIZE; c++)
-          if (grid[r][c] === 2048) { won = true; showOverlay('You win!'); return; }
-    }
-    // Lose
-    if (emptyCells().length > 0) return;
-    for (let r = 0; r < SIZE; r++)
-      for (let c = 0; c < SIZE; c++) {
-        if (c < SIZE - 1 && grid[r][c] === grid[r][c + 1]) return;
-        if (r < SIZE - 1 && grid[r][c] === grid[r + 1][c]) return;
-      }
-    gameOver = true;
-    showOverlay('Game over');
+  // Tiles that merged away slide to their target, then vanish
+  for (const g of ghosts) {
+    const el = tileEls.get(g.id);
+    if (el) { el.style.transform = pos(g.r, g.c); el.style.zIndex = 1; setTimeout(() => el.remove(), 120); tileEls.delete(g.id); seen.add(g.id); }
   }
-
-  function showOverlay(msg) {
-    overlayMsg.textContent = msg;
-    overlay.classList.remove('hidden');
+  for (const [id, el] of tileEls) if (!seen.has(id)) { el.remove(); tileEls.delete(id); }
+  $('#score').textContent = score;
+  if (score > store.data.best) store.set('best', score);
+  $('#best').textContent = store.data.best;
+  $('#top').textContent = maxTile();
+  if (gained) {
+    Kit.pulse($('#score'));
+    const g = document.createElement('div'); g.className = 'gain'; g.textContent = '+' + gained;
+    $('#score').parentElement.style.position = 'relative'; $('#score').parentElement.appendChild(g);
+    setTimeout(() => g.remove(), 800);
   }
+  $('#undo').disabled = !history.length;
+}
 
-  /* ── Render ── */
-  function render() {
-    tilesEl.innerHTML = '';
-    for (let r = 0; r < SIZE; r++) {
-      for (let c = 0; c < SIZE; c++) {
-        const val = grid[r][c];
-        if (val === 0) continue;
-        const tile = document.createElement('div');
-        tile.className = 'tile';
-        tile.dataset.val = val;
-        tile.style.setProperty('--row', r + 1);
-        tile.style.setProperty('--col', c + 1);
-        tile.textContent = val;
-        tilesEl.appendChild(tile);
-      }
-    }
-  }
+function undo() {
+  const s = history.pop();
+  if (!s) return;
+  over = false; if (!keepGoing) won = maxTileOf(s.grid) >= 2048;
+  grid = s.grid.map(row => row.map(t => t && { id: t.id, v: t.v }));
+  score = s.score;
+  Kit.overlay(ov, null);
+  tilesEl.innerHTML = ''; tileEls = new Map();
+  render(); save();
+  sfx.tone(520, { dur: .1, vol: .04, slide: 320 });
+}
+function maxTileOf(g) { let m = 0; g.forEach(row => row.forEach(t => { if (t) m = Math.max(m, t.v); })); return m; }
 
-  /* ── Score display ── */
-  function updateScoreDisplay() {
-    scoreEl.textContent = score;
-    bestEl.textContent  = best;
-    scoreBox.classList.remove('bump');
-    // force reflow to restart animation
-    void scoreBox.offsetWidth;
-    scoreBox.classList.add('bump');
-  }
-
-  /* ── Keyboard ── */
-  const keyMap = {
-    ArrowLeft: 'left', ArrowRight: 'right',
-    ArrowUp: 'up',     ArrowDown: 'down',
-  };
-
-  document.addEventListener('keydown', e => {
-    const dir = keyMap[e.key];
-    if (!dir || gameOver) return;
-    e.preventDefault();
-    move(dir);
+function winPanel() {
+  sfx.win(); Kit.confetti(['#f97316', '#38bdf8', '#fbbf24']);
+  Kit.overlay(ov, {
+    title: 'You made 2048', grad: true, text: 'Keep going for 4096, or start over.',
+    stats: [[score, 'Score'], [store.data.best, 'Best']],
+    actions: [{ label: 'Keep going', primary: true, onClick: () => { keepGoing = true; Kit.overlay(ov, null); boardEl.focus(); } },
+              { label: 'New game', onClick: newGame }],
   });
+}
+function losePanel() {
+  sfx.lose();
+  Kit.overlay(ov, {
+    title: 'No moves left', text: `Your biggest tile was ${maxTile()}.`,
+    stats: [[score, 'Score'], [store.data.best, 'Best']],
+    note: score && score >= store.data.best ? 'New best score' : '',
+    actions: [{ label: 'Undo', onClick: undo }, { label: 'New game', primary: true, onClick: newGame }],
+  });
+}
+function save() { store.set('saved', over ? null : { grid: grid.map(r => r.map(t => t && t.v)), score, won, keepGoing }); }
 
-  /* ── Touch / swipe ── */
-  let touchStartX = 0, touchStartY = 0;
+addEventListener('keydown', e => {
+  const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', a: 'left', d: 'right', w: 'up', s: 'down' };
+  if (map[e.key] && ov.hidden) { e.preventDefault(); move(map[e.key]); }
+  if ((e.key === 'z' || e.key === 'u') && !e.metaKey) undo();
+});
+Kit.swipe(boardEl, dir => { if (ov.hidden) move(dir); });
+$('#undo').onclick = undo;
+$('#new').onclick = () => { if (score === 0 || confirm('Start a new game? Your current board will be lost.')) newGame(); };
 
-  document.addEventListener('touchstart', e => {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-  }, { passive: true });
-
-  document.addEventListener('touchend', e => {
-    if (gameOver) return;
-    const dx = e.changedTouches[0].clientX - touchStartX;
-    const dy = e.changedTouches[0].clientY - touchStartY;
-    const absDx = Math.abs(dx), absDy = Math.abs(dy);
-    if (Math.max(absDx, absDy) < 20) return; // too short
-    if (absDx > absDy) move(dx > 0 ? 'right' : 'left');
-    else               move(dy > 0 ? 'down'  : 'up');
-  }, { passive: true });
-
-  /* ── Start ── */
-  init();
-})();
+// Restore a game in progress
+const saved = store.data.saved;
+if (saved && saved.grid) {
+  grid = saved.grid.map(row => row.map(v => v ? { id: 0, v } : null));
+  nextId = 1; grid.forEach(row => row.forEach(t => { if (t) t.id = nextId++; }));
+  score = saved.score; won = saved.won; keepGoing = saved.keepGoing; over = false; history = []; tileEls = new Map();
+  render();
+} else newGame();

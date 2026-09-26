@@ -2,10 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
   <title>2048</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/kit.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -27,49 +29,33 @@
 </style>
 <!-- /ARCADE-NAV -->
 
-  <div class="app">
-    <header class="header">
-      <div class="title-block">
-        <h1 class="game-title">2048</h1>
-        <p class="tagline">Slide. Merge. Reach&nbsp;2048.</p>
-      </div>
-      <div class="score-cluster">
-        <div class="score-box" id="score-box">
-          <span class="score-label">SCORE</span>
-          <span class="score-value" id="score">0</span>
-        </div>
-        <div class="score-box" id="best-box">
-          <span class="score-label">BEST</span>
-          <span class="score-value" id="best">0</span>
-        </div>
-      </div>
-    </header>
-
-    <div class="controls">
-      <button class="btn-new" id="btn-new">New Game</button>
-      <div class="hint">Arrow keys or swipe to play</div>
+<main class="page" style="--page-w:480px">
+  <header class="head">
+    <div class="head-title">
+      <h1 class="title">2048</h1>
+      <p class="tagline">Slide, merge, and build the 2048 tile.</p>
     </div>
-
-    <div class="board-wrap">
-      <div class="board" id="board">
-        <div class="grid-bg">
-          <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-          <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-          <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-          <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-        </div>
-        <div class="tiles" id="tiles"></div>
-      </div>
-    </div>
-
-    <div class="overlay hidden" id="overlay">
-      <div class="overlay-inner">
-        <p class="overlay-msg" id="overlay-msg">Game Over</p>
-        <button class="btn-new" id="btn-retry">Try Again</button>
-      </div>
-    </div>
+    <div class="head-tools"><button class="icon-btn" id="sound"></button></div>
+  </header>
+  <div class="stats">
+    <div class="stat"><span class="v" id="score">0</span><span class="l">Score</span></div>
+    <div class="stat"><span class="v" id="best">0</span><span class="l">Best</span></div>
+    <div class="stat"><span class="v" id="top">2</span><span class="l">Top tile</span></div>
   </div>
-
-  <script src="script.js"></script>
+  <div class="row grow">
+    <button class="btn btn-sm" id="undo"><svg class="ico" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/></svg>Undo</button>
+    <button class="btn btn-sm" id="new">New game</button>
+  </div>
+  <div class="arena">
+    <div class="board" id="board" tabindex="0" aria-label="2048 board. Use arrow keys or swipe.">
+      <div class="cells" id="cells"></div>
+      <div class="tiles" id="tiles"></div>
+    </div>
+    <div class="overlay" id="ov" hidden></div>
+  </div>
+  <p class="keys"><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd> or <kbd>WASD</kbd> to slide · <kbd>Z</kbd> undo</p>
+</main>
+<script src="../shared/kit.js"></script>
+<script src="script.js"></script>
 </body>
 </html>

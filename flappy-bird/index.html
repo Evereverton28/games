@@ -1,10 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Flappy Bird</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <title>Flappy Bird</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/kit.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <!-- ARCADE-NAV (injected) -->
@@ -25,28 +29,26 @@
 </style>
 <!-- /ARCADE-NAV -->
 
-  <div class="container">
-    <h1>FLAPPY BIRD</h1>
-    <div class="hud">
-      <div class="score-card">
-        <span class="label">SCORE</span>
-        <span id="score">0</span>
-      </div>
-      <div class="score-card">
-        <span class="label">BEST</span>
-        <span id="best">0</span>
-      </div>
+<main class="page" style="--page-w:460px">
+  <header class="head">
+    <div class="head-title">
+      <h1 class="title">Flappy Bird</h1>
+      <p class="tagline">Tap to flap. Thread the gaps. Earn a medal.</p>
     </div>
-    <div class="canvas-wrap">
-      <canvas id="game" width="400" height="600"></canvas>
-      <div id="overlay">
-        <h2 id="overlayTitle">FLAPPY BIRD</h2>
-        <p class="hint">Press SPACE, click, or tap to flap</p>
-        <button id="startBtn">START</button>
-      </div>
-    </div>
-    <p class="hint">SPACE / CLICK / TAP to flap</p>
+    <div class="head-tools"><button class="icon-btn" id="sound"></button></div>
+  </header>
+  <div class="stats">
+    <div class="stat"><span class="v" id="score">0</span><span class="l">Score</span></div>
+    <div class="stat"><span class="v" id="best">0</span><span class="l">Best</span></div>
+    <div class="stat"><span class="v" id="games">0</span><span class="l">Flights</span></div>
   </div>
+  <div class="arena">
+    <canvas id="cv" aria-label="Flappy bird. Space, click or tap to flap."></canvas>
+    <div class="overlay" id="ov" hidden></div>
+  </div>
+  <p class="keys"><kbd>Space</kbd> <kbd>↑</kbd> click or tap to flap · <kbd>P</kbd> pause</p>
+</main>
+<script src="../shared/kit.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

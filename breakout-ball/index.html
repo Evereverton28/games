@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
   <title>Breakout</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../shared/kit.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <!-- ARCADE-NAV (injected) -->
@@ -26,20 +29,27 @@
 </style>
 <!-- /ARCADE-NAV -->
 
-  <div id="ui">
-    <div>Score <span id="scoreEl">0</span></div>
-    <div>Best <span id="highEl">0</span></div>
-    <div>Lives <span id="livesEl">❤️❤️❤️</span></div>
-  </div>
-  <div id="wrap">
-    <canvas id="gc"></canvas>
-    <div id="overlay">
-      <div id="msg">Breakout</div>
-      <div id="sub">Arrow keys or mouse to move · P to pause</div>
-      <button id="startBtn" onclick="startGame()">Start game ▶</button>
+<main class="page" style="--page-w:540px">
+  <header class="head">
+    <div class="head-title">
+      <h1 class="title">Breakout</h1>
+      <p class="tagline">Clear every brick. Catch the power-ups. Keep the ball alive.</p>
     </div>
+    <div class="head-tools"><button class="icon-btn" id="sound"></button></div>
+  </header>
+  <div class="stats">
+    <div class="stat"><span class="v" id="score">0</span><span class="l">Score</span></div>
+    <div class="stat"><span class="v" id="level">1</span><span class="l">Level</span></div>
+    <div class="stat"><span class="v" id="lives">3</span><span class="l">Lives</span></div>
+    <div class="stat"><span class="v" id="best">0</span><span class="l">Best</span></div>
   </div>
-  <div id="pauseHint"></div>
-  <script src="script.js"></script>
+  <div class="arena">
+    <canvas id="cv" aria-label="Breakout. Move the paddle with the mouse, touch or arrow keys. Space launches the ball."></canvas>
+    <div class="overlay" id="ov" hidden></div>
+  </div>
+  <p class="keys">Mouse, touch or <kbd>←</kbd><kbd>→</kbd> to move · <kbd>Space</kbd> launch / fire · <kbd>P</kbd> pause</p>
+</main>
+<script src="../shared/kit.js"></script>
+<script src="script.js"></script>
 </body>
 </html>

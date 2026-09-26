@@ -2,9 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
   <title>Lights Out</title>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/kit.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -26,46 +29,32 @@
 </style>
 <!-- /ARCADE-NAV -->
 
-  <div class="container">
-    <h1>LIGHTS OUT</h1>
-    <p class="subtitle">Turn off every light. Tapping a tile flips it and its neighbours.</p>
-
-    <div class="hud">
-      <div class="hud-item">
-        <span class="hud-label">LEVEL</span>
-        <span class="hud-value" id="level-display">1</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">MOVES</span>
-        <span class="hud-value" id="moves-display">0</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">LIT</span>
-        <span class="hud-value" id="lit-display">0</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">BEST</span>
-        <span class="hud-value" id="best-display">—</span>
-      </div>
+<main class="page" style="--page-w:520px">
+  <header class="head">
+    <div class="head-title">
+      <h1 class="title">Lights Out</h1>
+      <p class="tagline">Each press flips a light and its neighbours. Switch them all off.</p>
     </div>
-
-    <div class="board-wrap">
-      <div id="board"></div>
-      <div id="win-banner" class="win-banner">
-        <div class="win-title">CLEARED!</div>
-        <div class="win-sub" id="win-sub"></div>
-        <button id="btn-next">Next Level →</button>
-      </div>
-    </div>
-
-    <div class="controls">
-      <button id="btn-hint">💡 Hint</button>
-      <button id="btn-new">↺ New Board</button>
-    </div>
-
-    <p class="hint">Click / tap a tile — or use arrow keys + space</p>
+    <div class="head-tools"><button class="icon-btn" id="sound"></button></div>
+  </header>
+  <div class="stats">
+    <div class="stat"><span class="v" id="lvl">1</span><span class="l" id="lvlLabel">Level</span></div>
+    <div class="stat"><span class="v" id="moves">0</span><span class="l">Moves</span></div>
+    <div class="stat"><span class="v" id="par">0</span><span class="l">Fewest possible</span></div>
+    <div class="stat"><span class="v" id="lit">0</span><span class="l">Lights on</span></div>
   </div>
-
-  <script src="script.js"></script>
+  <div class="arena">
+    <div class="grid" id="grid" role="grid" aria-label="Lights"></div>
+    <div class="overlay" id="ov" hidden></div>
+  </div>
+  <div class="row grow">
+    <button class="btn btn-sm" id="undo">Undo</button>
+    <button class="btn btn-sm" id="hint">Hint</button>
+    <button class="btn btn-sm" id="reset">Reset</button>
+    <button class="btn btn-sm" id="levels">Levels</button>
+  </div>
+</main>
+<script src="../shared/kit.js"></script>
+<script src="script.js"></script>
 </body>
 </html>

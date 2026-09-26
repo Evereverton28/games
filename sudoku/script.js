@@ -1,410 +1,216 @@
-// ─── DOM refs ─────────────────────────────────────────
-const boardEl    = document.getElementById('board');
-const overlay    = document.getElementById('overlay');
-const msg        = document.getElementById('msg');
-const sub        = document.getElementById('sub');
-const startBtn   = document.getElementById('startBtn');
-const mistakesEl = document.getElementById('mistakesEl');
-const timeEl     = document.getElementById('timeEl');
-const numpad     = document.getElementById('numpad');
-const eraseBtn   = document.getElementById('eraseBtn');
-const noteBtn    = document.getElementById('noteBtn');
-const hintBtn    = document.getElementById('hintBtn');
+/* ═══════════════════════════════════════════════════════════
+   SUDOKU — unique-solution generator, notes, hints
+═══════════════════════════════════════════════════════════ */
+const { $, sfx } = Kit;
+const store = Kit.store('sudoku', { diff: 'easy', best: {}, saved: null });
+const boardEl = $('#board'), ov = $('#ov');
+Kit.soundToggle($('#sound'));
 
-// ─── State ────────────────────────────────────────────
-const MAX_MISTAKES = 3;
-let solution   = [];
-let puzzle     = [];
-let userGrid   = [];
-let notesGrid  = [];
-let given      = [];
-let selected   = null;
-let mistakes   = 0;
-let hintsLeft  = 3;
-let noteMode   = false;
-let difficulty = 'easy';
-let timerInterval, elapsed, gameActive;
+const ROW = i => Math.floor(i / 9), COL = i => i % 9, BOX = i => Math.floor(ROW(i) / 3) * 3 + Math.floor(COL(i) / 3);
+const PEERS = Array.from({ length: 81 }, (_, i) => { const s = new Set(); for (let j = 0; j < 81; j++) if (j !== i && (ROW(j) === ROW(i) || COL(j) === COL(i) || BOX(j) === BOX(i))) s.add(j); return [...s]; });
 
-const REMOVE_COUNT = { easy: 36, medium: 46, hard: 56 };
-
-function generateSolution() {
-  const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
-  solveSudoku(grid);
-  return grid;
-}
-
-function solveSudoku(grid) {
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      if (grid[r][c] === 0) {
-        const nums = shuffle([1,2,3,4,5,6,7,8,9]);
-        for (const n of nums) {
-          if (isValid(grid, r, c, n)) {
-            grid[r][c] = n;
-            if (solveSudoku(grid)) return true;
-            grid[r][c] = 0;
-          }
-        }
-        return false;
-      }
+/* ── Solver (bitmasks, most-constrained cell first) ── */
+function countSolutions(grid, limit = 2, fill = null) {
+  const g = grid.slice(), rows = new Array(9).fill(0), cols = new Array(9).fill(0), boxes = new Array(9).fill(0);
+  for (let i = 0; i < 81; i++) if (g[i]) { const b = 1 << g[i]; rows[ROW(i)] |= b; cols[COL(i)] |= b; boxes[BOX(i)] |= b; }
+  let count = 0;
+  const order = fill ? Kit.shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]) : [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  (function rec() {
+    let best = -1, bestMask = 0, bestN = 10;
+    for (let i = 0; i < 81; i++) {
+      if (g[i]) continue;
+      const used = rows[ROW(i)] | cols[COL(i)] | boxes[BOX(i)];
+      let n = 0; for (let d = 1; d <= 9; d++) if (!(used & (1 << d))) n++;
+      if (n < bestN) { bestN = n; best = i; bestMask = used; if (n <= 1) break; }
     }
-  }
-  return true;
-}
-
-function isValid(grid, r, c, n) {
-  for (let i = 0; i < 9; i++) {
-    if (grid[r][i] === n) return false;
-    if (grid[i][c] === n) return false;
-    const br = 3 * Math.floor(r / 3) + Math.floor(i / 3);
-    const bc = 3 * Math.floor(c / 3) + (i % 3);
-    if (grid[br][bc] === n) return false;
-  }
-  return true;
-}
-
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-function createPuzzle(sol, removeCount) {
-  const puz = sol.map(r => [...r]);
-  const cells = shuffle([...Array(81).keys()]);
-  let removed = 0;
-  for (const idx of cells) {
-    if (removed >= removeCount) break;
-    const r = Math.floor(idx / 9), c = idx % 9;
-    puz[r][c] = 0;
-    removed++;
-  }
-  return puz;
-}
-
-function newGame() {
-  clearInterval(timerInterval);
-  elapsed   = 0;
-  mistakes  = 0;
-  hintsLeft = 3;
-  noteMode  = false;
-  selected  = null;
-  gameActive = true;
-
-  solution = generateSolution();
-  puzzle   = createPuzzle(solution, REMOVE_COUNT[difficulty]);
-
-  userGrid  = puzzle.map(r => [...r]);
-  notesGrid = Array.from({ length: 9 }, () =>
-    Array.from({ length: 9 }, () => new Set())
-  );
-  given = puzzle.map(r => r.map(v => v !== 0));
-
-  mistakesEl.textContent = `0 / ${MAX_MISTAKES}`;
-  timeEl.textContent     = '00:00';
-  hintBtn.textContent    = `💡 Hint (${hintsLeft})`;
-  hintBtn.classList.remove('exhausted');
-  noteBtn.classList.remove('active');
-
-  overlay.classList.add('hidden');
-  renderBoard();
-  buildNumpad();
-  startTimer();
-}
-
-function renderBoard() {
-  boardEl.innerHTML = '';
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      const cell = document.createElement('div');
-      cell.className = 'cell';
-      cell.dataset.r = r;
-      cell.dataset.c = c;
-
-      if (c === 2 || c === 5) cell.classList.add('box-right');
-      if (r === 2 || r === 5) cell.classList.add('box-bottom');
-
-      if (given[r][c]) {
-        cell.classList.add('given');
-        cell.textContent = puzzle[r][c];
-      }
-
-      cell.addEventListener('click', () => selectCell(r, c));
-      boardEl.appendChild(cell);
+    if (best < 0) { count++; if (fill) fill.push(g.slice()); return; }
+    for (const d of order) {
+      if (bestMask & (1 << d)) continue;
+      const b = 1 << d; g[best] = d; rows[ROW(best)] |= b; cols[COL(best)] |= b; boxes[BOX(best)] |= b;
+      rec();
+      g[best] = 0; rows[ROW(best)] &= ~b; cols[COL(best)] &= ~b; boxes[BOX(best)] &= ~b;
+      if (count >= limit) return;
     }
+  })();
+  return count;
+}
+function generate(diff) {
+  const full = []; countSolutions(new Array(81).fill(0), 1, full);
+  const solution = full[0], puzzle = solution.slice();
+  const target = { easy: 40, medium: 32, hard: 25 }[diff];
+  // remove symmetric pairs while the solution stays unique
+  const cells = Kit.shuffle([...Array(41).keys()]);
+  let clues = 81;
+  for (const i of cells) {
+    if (clues <= target) break;
+    const j = 80 - i, a = puzzle[i], b = puzzle[j];
+    puzzle[i] = 0; puzzle[j] = 0;
+    if (countSolutions(puzzle, 2) !== 1) { puzzle[i] = a; puzzle[j] = b; }
+    else clues -= i === j ? 1 : 2;
   }
+  return { puzzle, solution };
 }
 
-function refreshBoard() {
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      updateCellEl(r, c);
-    }
-  }
-  buildNumpad();
+/* ── State ── */
+let diff, P, sel = -1, noteMode = false, timer;
+const cellEls = [];
+for (let i = 0; i < 81; i++) {
+  const c = document.createElement('div');
+  c.className = 'cell'; c.setAttribute('role', 'gridcell'); c.tabIndex = -1;
+  c.addEventListener('click', () => select(i));
+  boardEl.appendChild(c); cellEls.push(c);
 }
-
-function updateCellEl(r, c) {
-  const el = getCellEl(r, c);
-  if (!el) return;
-
-  const classes = ['cell'];
-  if (c === 2 || c === 5) classes.push('box-right');
-  if (r === 2 || r === 5) classes.push('box-bottom');
-  if (given[r][c])         classes.push('given');
-
-  if (selected) {
-    const { r: sr, c: sc } = selected;
-    if (r === sr && c === sc) {
-      classes.push('selected');
-    } else if (r === sr || c === sc || (Math.floor(r/3) === Math.floor(sr/3) && Math.floor(c/3) === Math.floor(sc/3))) {
-      classes.push('highlight');
-    }
-    const selVal = userGrid[sr][sc];
-    if (selVal !== 0 && userGrid[r][c] === selVal) {
-      classes.push('same-num');
-    }
-  }
-
-  el.className = classes.join(' ');
-
-  if (given[r][c]) {
-    el.textContent = puzzle[r][c];
-    return;
-  }
-
-  const val   = userGrid[r][c];
-  const notes = notesGrid[r][c];
-
-  el.innerHTML = '';
-
-  if (val !== 0) {
-    el.textContent = val;
-    if (val === solution[r][c]) {
-      el.classList.add('user-correct');
-    } else {
-      el.classList.add('user-wrong');
-    }
-  } else if (notes.size > 0) {
-    const noteDiv = document.createElement('div');
-    noteDiv.className = 'notes';
-    for (let n = 1; n <= 9; n++) {
-      const nd = document.createElement('div');
-      nd.className = 'note-num';
-      nd.textContent = notes.has(n) ? n : '';
-      noteDiv.appendChild(nd);
-    }
-    el.appendChild(noteDiv);
-  }
+for (let d = 1; d <= 9; d++) {
+  const b = document.createElement('button');
+  b.innerHTML = `${d}<small></small>`; b.dataset.d = d; b.setAttribute('aria-label', `Enter ${d}`);
+  b.addEventListener('click', () => input(d));
+  $('#pad').appendChild(b);
 }
+const setDiff = Kit.segmented($('#diff'), v => { if (P && P.filled > 0 && !P.done && !confirm('Start a new puzzle? This one will be lost.')) { setDiff(diff); return; } diff = v; store.set('diff', v); newPuzzle(); });
 
-function getCellEl(r, c) {
-  return boardEl.children[r * 9 + c];
+function newPuzzle() {
+  const { puzzle, solution } = generate(diff);
+  P = { diff, given: puzzle.map(v => !!v), grid: puzzle.slice(), solution, notes: Array.from({ length: 81 }, () => 0), history: [], hints: 0, elapsed: 0, done: false, filled: 0 };
+  sel = P.grid.findIndex(v => !v);
+  Kit.overlay(ov, null);
+  boardEl.classList.remove('won');
+  startTimer(); render(); save();
 }
-
-function selectCell(r, c) {
-  selected = { r, c };
-  refreshBoard();
-}
-
-function inputNumber(n) {
-  if (!selected || !gameActive) return;
-  const { r, c } = selected;
-  if (given[r][c]) return;
-
-  if (noteMode) {
-    const notes = notesGrid[r][c];
-    if (notes.has(n)) notes.delete(n); else notes.add(n);
-    userGrid[r][c] = 0;
-    updateCellEl(r, c);
-    return;
-  }
-
-  notesGrid[r][c].clear();
-  userGrid[r][c] = n;
-
-  if (n !== solution[r][c]) {
-    mistakes++;
-    mistakesEl.textContent = `${mistakes} / ${MAX_MISTAKES}`;
-    updateCellEl(r, c);
-    const el = getCellEl(r, c);
-    el.style.animation = 'none';
-    requestAnimationFrame(() => { el.style.animation = ''; el.classList.add('user-wrong'); });
-    if (mistakes >= MAX_MISTAKES) {
-      setTimeout(() => endGame(false), 400);
-    }
-  } else {
-    clearNoteInPeers(r, c, n);
-    updateCellEl(r, c);
-    const el = getCellEl(r, c);
-    el.classList.add('complete-flash');
-    setTimeout(() => el.classList.remove('complete-flash'), 500);
-    checkWin();
-  }
-
-  buildNumpad();
-}
-
-function clearNoteInPeers(r, c, n) {
-  for (let i = 0; i < 9; i++) {
-    notesGrid[r][i].delete(n);
-    notesGrid[i][c].delete(n);
-  }
-  const br = Math.floor(r / 3) * 3;
-  const bc = Math.floor(c / 3) * 3;
-  for (let dr = 0; dr < 3; dr++) for (let dc = 0; dc < 3; dc++) {
-    notesGrid[br + dr][bc + dc].delete(n);
-  }
-}
-
-function eraseCell() {
-  if (!selected || !gameActive) return;
-  const { r, c } = selected;
-  if (given[r][c]) return;
-  userGrid[r][c] = 0;
-  notesGrid[r][c].clear();
-  updateCellEl(r, c);
-  buildNumpad();
-}
-
-function giveHint() {
-  if (!gameActive || hintsLeft <= 0) return;
-  const empties = [];
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      if (!given[r][c] && userGrid[r][c] !== solution[r][c]) {
-        empties.push({ r, c });
-      }
-    }
-  }
-  if (empties.length === 0) return;
-
-  let target = empties[0];
-  if (selected && !given[selected.r][selected.c] && userGrid[selected.r][selected.c] !== solution[selected.r][selected.c]) {
-    target = selected;
-  }
-
-  notesGrid[target.r][target.c].clear();
-  userGrid[target.r][target.c] = solution[target.r][target.c];
-  hintsLeft--;
-  hintBtn.textContent = `💡 Hint (${hintsLeft})`;
-  if (hintsLeft === 0) hintBtn.classList.add('exhausted');
-
-  clearNoteInPeers(target.r, target.c, solution[target.r][target.c]);
-  selected = target;
-  refreshBoard();
-  checkWin();
-}
-
-function buildNumpad() {
-  numpad.innerHTML = '';
-  for (let n = 1; n <= 9; n++) {
-    const btn = document.createElement('button');
-    btn.className = 'num-btn';
-    btn.textContent = n;
-    let count = 0;
-    if (userGrid.length === 9 && solution.length === 9) {
-      for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
-        if (userGrid[r][c] === n && solution[r][c] === n) count++;
-      }
-    }
-    if (count >= 9) btn.classList.add('exhausted');
-    btn.addEventListener('click', () => inputNumber(n));
-    numpad.appendChild(btn);
-  }
-}
-
-function checkWin() {
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      if (userGrid[r][c] !== solution[r][c]) return;
-    }
-  }
-  endGame(true);
-}
-
-function endGame(won) {
-  gameActive = false;
-  clearInterval(timerInterval);
-  selected = null;
-  refreshBoard();
-
-  setTimeout(() => {
-    msg.textContent      = won ? '🎉 SOLVED!' : '💥 GAME OVER';
-    sub.textContent      = won
-      ? `Completed in ${formatTime(elapsed)} · ${difficulty}`
-      : `${mistakes} mistakes — try again!`;
-    startBtn.textContent = 'New Game ▶';
-    overlay.classList.remove('hidden');
-  }, won ? 400 : 500);
-}
-
 function startTimer() {
-  timerInterval = setInterval(() => {
-    elapsed++;
-    timeEl.textContent = formatTime(elapsed);
-  }, 1000);
+  clearInterval(timer);
+  let last = performance.now();
+  timer = setInterval(() => {
+    const now = performance.now();
+    if (!P.done && !document.hidden && ov.hidden) P.elapsed += (now - last) / 1000;
+    last = now;
+    $('#time').textContent = Kit.fmtTime(P.elapsed);
+  }, 500);
+}
+function select(i) { sel = i; cellEls[i].focus({ preventScroll: true }); render(); }
+
+function input(d) {
+  if (P.done || sel < 0 || P.given[sel]) return;
+  if (noteMode) {
+    if (P.grid[sel]) return;
+    push(); P.notes[sel] ^= 1 << d;
+    sfx.tone(700 + d * 20, { type: 'triangle', dur: .04, vol: .03 });
+  } else {
+    if (P.grid[sel] === d) return;
+    push(); P.grid[sel] = d; P.notes[sel] = 0;
+    // clear this digit from notes of peers
+    for (const j of PEERS[sel]) P.notes[j] &= ~(1 << d);
+    const clash = PEERS[sel].some(j => P.grid[j] === d);
+    clash ? sfx.error() : sfx.tone(440 + d * 30, { type: 'triangle', dur: .07, vol: .045 });
+    Kit.pulse(cellEls[sel], 'pop');
+    celebrateUnits(sel);
+  }
+  render(); save(); checkWin();
+}
+function erase() {
+  if (P.done || sel < 0 || P.given[sel] || (!P.grid[sel] && !P.notes[sel])) return;
+  push(); P.grid[sel] = 0; P.notes[sel] = 0; sfx.tone(300, { dur: .05, vol: .03 });
+  render(); save();
+}
+function push() { P.history.push({ grid: P.grid.slice(), notes: P.notes.slice(), sel }); if (P.history.length > 200) P.history.shift(); }
+function undo() {
+  const h = P.history.pop(); if (!h || P.done) return;
+  P.grid = h.grid; P.notes = h.notes; sel = h.sel;
+  sfx.tone(520, { dur: .08, vol: .03, slide: 330 }); render(); save();
+}
+function hint() {
+  if (P.done) return;
+  // Prefer the selected cell if it's empty or wrong, otherwise the empty cell with the fewest candidates
+  let i = sel >= 0 && !P.given[sel] && P.grid[sel] !== P.solution[sel] ? sel : -1;
+  if (i < 0) {
+    let bestN = 10;
+    for (let k = 0; k < 81; k++) {
+      if (P.grid[k] === P.solution[k]) continue;
+      const used = new Set(PEERS[k].map(j => P.grid[j]));
+      const n = 9 - [...used].filter(Boolean).length;
+      if (n < bestN) { bestN = n; i = k; }
+    }
+  }
+  if (i < 0) return;
+  push();
+  P.grid[i] = P.solution[i]; P.notes[i] = 0; P.given[i] = false; P.hints++;
+  for (const j of PEERS[i]) P.notes[j] &= ~(1 << P.solution[i]);
+  sel = i; P.hinted = (P.hinted || []).concat(i);
+  sfx.tone(990, { type: 'sine', dur: .2, vol: .04 });
+  Kit.pulse(cellEls[i], 'pop');
+  render(); save(); checkWin();
+}
+function celebrateUnits(i) {
+  const units = [[...Array(81).keys()].filter(j => ROW(j) === ROW(i)), [...Array(81).keys()].filter(j => COL(j) === COL(i)), [...Array(81).keys()].filter(j => BOX(j) === BOX(i))];
+  for (const u of units) if (u.every(j => P.grid[j] === P.solution[j])) u.forEach((j, k) => setTimeout(() => Kit.pulse(cellEls[j], 'pop'), k * 25));
+}
+function checkWin() {
+  if (!P.grid.every((v, i) => v === P.solution[i])) return;
+  P.done = true;
+  const secs = Math.round(P.elapsed);
+  const prev = store.data.best[diff];
+  const record = P.hints === 0 && (prev == null || secs < prev);
+  if (record) { store.data.best[diff] = secs; store.save(); }
+  store.set('saved', null);
+  sel = -1; render();
+  boardEl.classList.add('won');
+  [...cellEls].forEach((c, k) => c.style.animationDelay = `${(ROW(k) + COL(k)) * 30}ms`);
+  sfx.win(); Kit.confetti();
+  setTimeout(() => Kit.overlay(ov, {
+    title: 'Solved', grad: true, text: P.hints ? `Solved with ${P.hints} hint${P.hints > 1 ? 's' : ''}. Best times only count hint-free solves.` : `A clean ${diff} solve.`,
+    stats: [[Kit.fmtTime(secs), 'Time'], [store.data.best[diff] != null ? Kit.fmtTime(store.data.best[diff]) : '–', 'Best']],
+    note: record ? 'New best time' : '',
+    actions: [{ label: 'New puzzle', primary: true, onClick: newPuzzle }],
+  }), 900);
 }
 
-function formatTime(s) {
-  const m = Math.floor(s / 60).toString().padStart(2, '0');
-  const sec = (s % 60).toString().padStart(2, '0');
-  return `${m}:${sec}`;
+function render() {
+  const v = sel >= 0 ? P.grid[sel] : 0;
+  const counts = Array(10).fill(0);
+  let left = 0;
+  for (let i = 0; i < 81; i++) {
+    const c = cellEls[i], val = P.grid[i];
+    if (val) counts[val]++; else left++;
+    const bad = val && PEERS[i].some(j => P.grid[j] === val);
+    c.className = 'cell' + (P.given[i] ? ' given' : '') + (i === sel ? ' sel' : '') +
+      (sel >= 0 && i !== sel && PEERS[sel].includes(i) ? ' peer' : '') + (v && val === v && i !== sel ? ' same' : '') +
+      (bad ? ' bad' : '') + (P.hinted && P.hinted.includes(i) ? ' hinted' : '');
+    if (val) c.textContent = val;
+    else if (P.notes[i]) c.innerHTML = `<div class="notes">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => `<span class="${v === d ? 'hl' : ''}">${P.notes[i] & (1 << d) ? d : ''}</span>`).join('')}</div>`;
+    else c.textContent = '';
+    c.setAttribute('aria-label', `Row ${ROW(i) + 1}, column ${COL(i) + 1}: ${val || 'empty'}${P.given[i] ? ', given' : ''}`);
+    c.tabIndex = i === sel ? 0 : -1;
+  }
+  P.filled = 81 - left - P.given.filter(Boolean).length;
+  $$pad().forEach(b => { const d = +b.dataset.d; b.classList.toggle('done', counts[d] >= 9); b.querySelector('small').textContent = Math.max(0, 9 - counts[d]); });
+  $('#left').textContent = left;
+  $('#hints').textContent = P.hints;
+  $('#best').textContent = store.data.best[diff] != null ? Kit.fmtTime(store.data.best[diff]) : '–';
+  $('#undo').disabled = !P.history.length || P.done;
 }
+const $$pad = () => [...$('#pad').children];
+function save() { store.set('saved', P.done ? null : { ...P, history: [] }); }
 
-window.addEventListener('keydown', (e) => {
-  if (!gameActive) return;
-
-  if (e.key >= '1' && e.key <= '9') {
-    inputNumber(+e.key);
-    return;
-  }
-
-  if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
-    eraseCell();
-    return;
-  }
-
-  if (e.key === 'n' || e.key === 'N') {
-    toggleNoteMode();
-    return;
-  }
-
-  if (!selected) return;
-  const moves = { ArrowUp: [-1,0], ArrowDown: [1,0], ArrowLeft: [0,-1], ArrowRight: [0,1] };
-  const move = moves[e.key];
-  if (move) {
+$('#undo').onclick = undo; $('#erase').onclick = erase; $('#hint').onclick = hint;
+$('#notes').onclick = () => { noteMode = !noteMode; $('#notes').setAttribute('aria-pressed', noteMode); sfx.click(); };
+$('#new').onclick = () => { if (P.filled > 0 && !P.done && !confirm('Start a new puzzle? This one will be lost.')) return; newPuzzle(); };
+addEventListener('keydown', e => {
+  if (!ov.hidden || e.metaKey || e.ctrlKey) return;
+  if (/^[1-9]$/.test(e.key)) { input(+e.key); return; }
+  if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') { erase(); return; }
+  if (e.key === 'n' || e.key === 'N') { $('#notes').click(); return; }
+  if (e.key === 'z' || e.key === 'Z') { undo(); return; }
+  if (e.key === 'h' || e.key === 'H') { hint(); return; }
+  const d = { ArrowUp: -9, ArrowDown: 9, ArrowLeft: -1, ArrowRight: 1 }[e.key];
+  if (d) {
     e.preventDefault();
-    const nr = Math.max(0, Math.min(8, selected.r + move[0]));
-    const nc = Math.max(0, Math.min(8, selected.c + move[1]));
-    selectCell(nr, nc);
+    if (sel < 0) sel = 0;
+    const r = ROW(sel), c = COL(sel);
+    const nr = (r + (d === -9 ? -1 : d === 9 ? 1 : 0) + 9) % 9, nc = (c + (d === -1 ? -1 : d === 1 ? 1 : 0) + 9) % 9;
+    select(nr * 9 + nc);
   }
 });
 
-eraseBtn.addEventListener('click', eraseCell);
-noteBtn.addEventListener('click', toggleNoteMode);
-hintBtn.addEventListener('click', giveHint);
-
-function toggleNoteMode() {
-  noteMode = !noteMode;
-  noteBtn.classList.toggle('active', noteMode);
-}
-
-document.querySelectorAll('.diff').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.diff').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    difficulty = btn.dataset.d;
-    newGame();
-  });
-});
-
-startBtn.addEventListener('click', newGame);
-
-overlay.classList.remove('hidden');
-msg.textContent      = 'SUDOKU';
-sub.textContent      = 'Fill the grid so every row,\ncolumn and 3×3 box has 1–9';
-startBtn.textContent = 'New Game ▶';
-buildNumpad();
+diff = store.data.diff; setDiff(diff);
+const saved = store.data.saved;
+if (saved && saved.grid) { P = saved; diff = P.diff; setDiff(diff); sel = P.grid.findIndex(v => !v); startTimer(); render(); }
+else newPuzzle();

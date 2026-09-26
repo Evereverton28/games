@@ -1,443 +1,206 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const canvas      = document.getElementById('pongCanvas');
-  const ctx         = canvas.getContext('2d');
-  const startBtn    = document.getElementById('startButton');
-  const pauseBtn    = document.getElementById('pauseButton');
-  const soundToggle = document.getElementById('soundToggle');
-  const winScoreSel = document.getElementById('winScore');
-  const winBanner   = document.getElementById('winBanner');
-  const historyEl   = document.getElementById('matchHistory');
+/* ═══════════════════════════════════════════════════════════
+   PONG
+═══════════════════════════════════════════════════════════ */
+const { $, clamp, rand, sfx } = Kit;
+const W = 760, H = 460, PW = 12, PH = 86, WIN = 7;
+const cv = $('#cv'), ctx = Kit.fitCanvas(cv, W, H), ov = $('#ov');
+const store = Kit.store('pong', { mode: 'medium', wins: 0, losses: 0 });
+const parts = new Kit.Particles(), shake = new Kit.Shake();
+Kit.soundToggle($('#sound'));
 
-  const W = canvas.width;
-  const H = canvas.height;
-  const PW = 10;
-  const PH_DEFAULT = 88;
+const AI = { easy: { speed: 4.2, err: 60, react: 22 }, medium: { speed: 6.2, err: 28, react: 10 }, hard: { speed: 8.6, err: 8, react: 3 } };
+let mode, G;
+const setMode = Kit.segmented($('#mode'), v => { mode = v; store.set('mode', v); intro(); });
 
-  // ─── State ───────────────────────────────────────────────────────────────
-  let gameStarted  = false;
-  let paused       = false;
-  let serving      = false;
-  let countdown    = 0;
-  let animId       = null;
-  let countdownTmr = null;
-  let pwTimer      = null;
-  let audioCtx     = null;
+function newMatch() {
+  G = { state: 'serve', count: 180, s1: 0, s2: 0, rally: 0, longest: 0, server: Math.random() < .5 ? 1 : -1,
+        p1: { y: H / 2, vy: 0 }, p2: { y: H / 2, vy: 0, target: H / 2, think: 0 },
+        ball: { x: W / 2, y: H / 2, dx: 0, dy: 0, trail: [] }, flash: 0 };
+  resetBall();
+}
+function resetBall() {
+  const b = G.ball; b.x = W / 2; b.y = H / 2; b.dx = 0; b.dy = 0; b.trail = [];
+  G.state = 'serve'; G.count = 150; G.rally = 0;
+}
+function serve() {
+  const a = rand(-.45, .45);
+  const sp = 6.2;
+  G.ball.dx = Math.cos(a) * sp * G.server; G.ball.dy = Math.sin(a) * sp;
+  G.state = 'play';
+}
 
-  let ls = 0, rs = 0;
-  let matchHistory = [];
-  let particles    = [];
-  let powerups     = [];
-  let extraBalls   = [];
-  let activePowerups = { l: { active: [] }, r: { active: [] } };
-  let shake = { x: 0, y: 0, t: 0 };
-
-  const keys = {};
-
-  const ball = { x: W / 2, y: H / 2, r: 9, dx: 5, dy: 3.5, trail: [] };
-
-  const lp = { x: 14, y: H / 2 - PH_DEFAULT / 2, w: PW, h: PH_DEFAULT, dy: 0 };
-  const rp = { x: W - PW - 14, y: H / 2 - PH_DEFAULT / 2, w: PW, h: PH_DEFAULT, dy: 0 };
-
-  // ─── Input ───────────────────────────────────────────────────────────────
-  document.addEventListener('keydown', e => {
-    keys[e.key] = true;
-    if (['ArrowUp', 'ArrowDown', 'w', 's', ' '].includes(e.key)) e.preventDefault();
-  });
-  document.addEventListener('keyup', e => { keys[e.key] = false; });
-
-  // ─── Theme colours ───────────────────────────────────────────────────────
-  function colors() {
-    return {
-      bg:     '#0a0a0f',
-      paddle: '#e2e8f0',
-      ball:   '#e2e8f0',
-      score:  '#64748b',
-      net:    '#1e1e2e',
-      text:   '#e2e8f0',
-      muted:  '#64748b',
-      accent: '#38bdf8',
-    };
-  }
-
-  // ─── Audio ───────────────────────────────────────────────────────────────
-  function getAudio() {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    return audioCtx;
-  }
-
-  function playSound(freq, type, dur, vol) {
-    if (!soundToggle.checked) return;
-    try {
-      const a = getAudio();
-      const o = a.createOscillator();
-      const g = a.createGain();
-      o.connect(g);
-      g.connect(a.destination);
-      o.type = type || 'square';
-      o.frequency.setValueAtTime(freq, a.currentTime);
-      g.gain.setValueAtTime(vol || 0.08, a.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + dur);
-      o.start(a.currentTime);
-      o.stop(a.currentTime + dur);
-    } catch (e) {}
-  }
-
-  const sndHit     = () => playSound(220, 'square',   0.06, 0.07);
-  const sndWall    = () => playSound(160, 'sine',     0.05, 0.05);
-  const sndScore   = () => playSound(330, 'triangle', 0.30, 0.10);
-  const sndPowerup = () => playSound(550, 'sine',     0.15, 0.08);
-
-  // ─── Particles ───────────────────────────────────────────────────────────
-  function spawnParticles(x, y, col, n) {
-    for (let i = 0; i < (n || 12); i++) {
-      const a   = Math.random() * Math.PI * 2;
-      const spd = 1.5 + Math.random() * 3;
-      particles.push({ x, y, dx: Math.cos(a) * spd, dy: Math.sin(a) * spd, life: 1, col, r: 2 + Math.random() * 3 });
-    }
-  }
-
-  function triggerShake(mag) {
-    shake.x = (Math.random() - 0.5) * mag * 2;
-    shake.y = (Math.random() - 0.5) * mag * 2;
-    shake.t = 8;
-  }
-
-  // ─── Power-ups ───────────────────────────────────────────────────────────
-  const POWERUP_TYPES = [
-    { id: 'wide',   label: 'Wide',    col: '#378ADD', textCol: '#cce4f7', dur: 6000 },
-    { id: 'narrow', label: 'Narrow',  col: '#E24B4A', textCol: '#fcd9d9', dur: 6000 },
-    { id: 'fast',   label: 'Speed',   col: '#EF9F27', textCol: '#fde8c0', dur: 5000 },
-    { id: 'multi',  label: 'Multi',   col: '#1D9E75', textCol: '#b8f0de', dur: 7000 },
-  ];
-
-  function schedulePowerup() {
-    pwTimer = setTimeout(spawnPowerup, 5000 + Math.random() * 8000);
-  }
-
-  function spawnPowerup() {
-    if (!gameStarted || paused || serving) return schedulePowerup();
-    const t = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
-    powerups.push({ x: W / 2 + (Math.random() - 0.5) * 200, y: 80 + Math.random() * (H - 160), r: 14, type: t, pulse: 0 });
-    schedulePowerup();
-  }
-
-  function applyPowerup(side, type) {
-    const paddle = side === 'l' ? lp : rp;
-    const opp    = side === 'l' ? rp : lp;
-    const oppSide = side === 'l' ? 'r' : 'l';
-    sndPowerup();
-
-    if (type.id === 'wide') {
-      paddle.h = Math.min(H * 0.5, PH_DEFAULT * 1.7);
-      clearTimeout(activePowerups[side].wideT);
-      activePowerups[side].wideT = setTimeout(() => { paddle.h = PH_DEFAULT; }, type.dur);
-    }
-    if (type.id === 'narrow') {
-      opp.h = Math.max(30, PH_DEFAULT * 0.55);
-      clearTimeout(activePowerups[oppSide].narrowT);
-      activePowerups[oppSide].narrowT = setTimeout(() => { opp.h = PH_DEFAULT; }, type.dur);
-    }
-    if (type.id === 'fast') {
-      ball.dx *= 1.4; ball.dy *= 1.4;
-      clearTimeout(activePowerups.fastT);
-      activePowerups.fastT = setTimeout(() => {
-        const spd = Math.sqrt(ball.dx ** 2 + ball.dy ** 2);
-        if (spd > 0) { ball.dx = ball.dx / spd * 6; ball.dy = ball.dy / spd * 4; }
-      }, type.dur);
-    }
-    if (type.id === 'multi' && extraBalls.length === 0) {
-      for (let i = 0; i < 2; i++) {
-        extraBalls.push({
-          x: ball.x, y: ball.y, r: 7,
-          dx: ball.dx * (0.8 + Math.random() * 0.4) * (Math.random() < 0.5 ? -1 : 1),
-          dy: (Math.random() - 0.5) * 8,
-          trail: [],
-        });
-      }
-      setTimeout(() => { extraBalls = []; }, type.dur);
-    }
-
-    const endTime = Date.now() + type.dur;
-    activePowerups[side].active.push({ type, end: endTime });
-    setTimeout(() => {
-      activePowerups[side].active = activePowerups[side].active.filter(a => a.end > Date.now());
-    }, type.dur + 100);
-  }
-
-  // ─── Ball helpers ─────────────────────────────────────────────────────────
-  function resetBall(dir) {
-    ball.x = W / 2; ball.y = H / 2; ball.trail = [];
-    const d = dir || (Math.random() < 0.5 ? 1 : -1);
-    ball.dx = d * 5.5;
-    ball.dy = (Math.random() < 0.5 ? 1 : -1) * (2.5 + Math.random() * 2);
-    extraBalls = [];
-  }
-
-  function startCountdown(dir) {
-    serving = true;
-    countdown = 3;
-    const tick = () => {
-      countdown--;
-      if (countdown <= 0) {
-        serving = false; countdown = 0;
-        resetBall(dir);
-        if (!paused) loop();
-      } else {
-        countdownTmr = setTimeout(tick, 1000);
-      }
-    };
-    countdownTmr = setTimeout(tick, 1000);
-  }
-
-  // ─── Win / match ──────────────────────────────────────────────────────────
-  function checkWin() {
-    const target = parseInt(winScoreSel.value);
-    if (ls >= target || rs >= target) endMatch(ls >= target ? 'Left' : 'Right');
-  }
-
-  function endMatch(winner) {
-    gameStarted = false;
-    cancelAnimationFrame(animId);
-    matchHistory.unshift({ winner, ls, rs, ts: new Date().toLocaleTimeString() });
-    showWinBanner(winner);
-    renderHistory();
-  }
-
-  function showWinBanner(winner) {
-    winBanner.style.display = 'flex';
-    winBanner.innerHTML = `
-      <h2>${winner.toUpperCase()} PLAYER WINS</h2>
-      <p>Final score: ${ls} &mdash; ${rs}</p>
-      <button onclick="window._pongReset()">&#8635; Play again</button>
-    `;
-  }
-
-  function renderHistory() {
-    if (!matchHistory.length) { historyEl.innerHTML = ''; return; }
-    historyEl.innerHTML = '<div class="history-title">Match History</div>' +
-      matchHistory.slice(0, 5).map(m =>
-        `<div class="history-row">
-          <span class="winner">${m.winner} wins</span>
-          <span class="score">${m.ls} &ndash; ${m.rs}</span>
-          <span>${m.ts}</span>
-        </div>`
-      ).join('');
-  }
-
-  // ─── Update logic ─────────────────────────────────────────────────────────
-  function updateBall(b, isMain) {
-    b.trail.push({ x: b.x, y: b.y });
-    if (b.trail.length > 10) b.trail.shift();
-
-    b.x += b.dx; b.y += b.dy;
-
-    if (b.y - b.r < 0) { b.y = b.r; b.dy = Math.abs(b.dy); if (isMain) sndWall(); spawnParticles(b.x, b.y, '#64748b', 5); }
-    if (b.y + b.r > H) { b.y = H - b.r; b.dy = -Math.abs(b.dy); if (isMain) sndWall(); spawnParticles(b.x, b.y, '#64748b', 5); }
-
-    [[lp, true], [rp, false]].forEach(([p, isLeft]) => {
-      if (isLeft && b.dx < 0 && b.x - b.r < p.x + p.w && b.x + b.r > p.x && b.y + b.r > p.y && b.y - b.r < p.y + p.h) {
-        b.dx = Math.abs(b.dx) * 1.04;
-        b.dy = ((b.y - (p.y + p.h / 2)) / (p.h / 2)) * 7;
-        b.x = p.x + p.w + b.r;
-        if (isMain) sndHit(); spawnParticles(b.x, b.y, '#38bdf8', 8); triggerShake(3);
-      }
-      if (!isLeft && b.dx > 0 && b.x + b.r > p.x && b.x - b.r < p.x + p.w && b.y + b.r > p.y && b.y - b.r < p.y + p.h) {
-        b.dx = -Math.abs(b.dx) * 1.04;
-        b.dy = ((b.y - (p.y + p.h / 2)) / (p.h / 2)) * 7;
-        b.x = p.x - b.r;
-        if (isMain) sndHit(); spawnParticles(b.x, b.y, '#38bdf8', 8); triggerShake(3);
-      }
-    });
-
-    const spd = Math.sqrt(b.dx ** 2 + b.dy ** 2);
-    if (spd > 15) { b.dx = b.dx / spd * 15; b.dy = b.dy / spd * 15; }
-
-    if (isMain) {
-      if (b.x - b.r > W) { ls++; sndScore(); triggerShake(6); spawnParticles(W - 20, b.y, '#1D9E75', 20); checkWin(); if (gameStarted) { serving = true; cancelAnimationFrame(animId); startCountdown(-1); } return; }
-      if (b.x + b.r < 0) { rs++; sndScore(); triggerShake(6); spawnParticles(20, b.y, '#1D9E75', 20); checkWin(); if (gameStarted) { serving = true; cancelAnimationFrame(animId); startCountdown(1); } return; }
-    } else {
-      if (b.x - b.r > W || b.x + b.r < 0) extraBalls = extraBalls.filter(eb => eb !== b);
-    }
-
-    powerups.forEach((pw, i) => {
-      const dx = b.x - pw.x, dy = b.y - pw.y;
-      if (Math.sqrt(dx * dx + dy * dy) < b.r + pw.r) {
-        const side = b.dx < 0 ? 'r' : 'l';
-        applyPowerup(side, pw.type);
-        spawnParticles(pw.x, pw.y, pw.type.col, 15);
-        powerups.splice(i, 1);
-      }
-    });
-  }
-
-  function update() {
-    if (keys['w'])          lp.dy = -6; else if (keys['s'])          lp.dy = 6; else lp.dy = 0;
-    if (keys['ArrowUp'])    rp.dy = -6; else if (keys['ArrowDown'])  rp.dy = 6; else rp.dy = 0;
-
-    lp.y = Math.max(0, Math.min(H - lp.h, lp.y + lp.dy));
-    rp.y = Math.max(0, Math.min(H - rp.h, rp.y + rp.dy));
-
-    if (!serving) {
-      updateBall(ball, true);
-      extraBalls.forEach(eb => updateBall(eb, false));
-    }
-  }
-
-  // ─── Draw ─────────────────────────────────────────────────────────────────
-  function draw() {
-    const col = colors();
-
-    if (shake.t > 0) { ctx.save(); ctx.translate(shake.x, shake.y); shake.t--; shake.x *= 0.7; shake.y *= 0.7; }
-
-    ctx.fillStyle = col.bg;
-    ctx.fillRect(0, 0, W, H);
-
-    // Net
-    ctx.setLineDash([8, 10]);
-    ctx.strokeStyle = col.net;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Scores
-    const target = parseInt(winScoreSel.value);
-    ctx.font = '500 30px "DM Sans", sans-serif';
-    ctx.fillStyle = col.score;
-    ctx.textAlign = 'center';
-    ctx.fillText(ls, W / 4, 48);
-    ctx.fillText(rs, W * 0.75, 48);
-    ctx.font = '12px "DM Sans", sans-serif';
-    ctx.fillStyle = col.muted;
-    ctx.fillText('first to ' + target, W / 2, 18);
-
-    // Countdown
-    if (serving && countdown > 0) {
-      ctx.font = '500 72px "Bebas Neue", sans-serif';
-      ctx.fillStyle = col.text;
-      ctx.textAlign = 'center';
-      ctx.fillText(countdown, W / 2, H / 2 + 26);
-    }
-
-    // Power-ups
-    powerups.forEach(p => {
-      p.pulse = (p.pulse + 0.06) % (Math.PI * 2);
-      const r = p.r + Math.sin(p.pulse) * 2;
-      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = p.type.col + '33'; ctx.fill();
-      ctx.strokeStyle = p.type.col; ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.fillStyle = p.type.textCol;
-      ctx.font = '9px "DM Sans", sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(p.type.label, p.x, p.y + 3.5);
-    });
-
-    // Paddles
-    ctx.fillStyle = col.paddle;
-    ctx.beginPath(); ctx.roundRect(lp.x, lp.y, lp.w, lp.h, 4); ctx.fill();
-    ctx.beginPath(); ctx.roundRect(rp.x, rp.y, rp.w, rp.h, 4); ctx.fill();
-
-    // Ball trails
-    function drawTrail(b) {
-      b.trail.forEach((t, i) => {
-        const alpha = (i / b.trail.length) * 0.25;
-        ctx.beginPath();
-        ctx.arc(t.x, t.y, b.r * (i / b.trail.length), 0, Math.PI * 2);
-        ctx.fillStyle = col.ball + Math.floor(alpha * 255).toString(16).padStart(2, '0');
-        ctx.fill();
-      });
-    }
-
-    drawTrail(ball);
-    ctx.fillStyle = col.ball;
-    ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2); ctx.fill();
-
-    extraBalls.forEach(eb => {
-      drawTrail(eb);
-      ctx.fillStyle = col.ball + 'bb';
-      ctx.beginPath(); ctx.arc(eb.x, eb.y, eb.r, 0, Math.PI * 2); ctx.fill();
-    });
-
-    // Particles
-    particles.forEach(p => { p.x += p.dx; p.y += p.dy; p.dy += 0.1; p.life -= 0.04; });
-    particles = particles.filter(p => p.life > 0);
-    particles.forEach(p => {
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
-      ctx.fillStyle = p.col + Math.floor(p.life * 180).toString(16).padStart(2, '0');
-      ctx.fill();
-    });
-
-    // Active power-up badges
-    const now = Date.now();
-    ['l', 'r'].forEach(side => {
-      activePowerups[side].active = activePowerups[side].active.filter(a => a.end > now);
-      activePowerups[side].active.forEach((a, i) => {
-        const rem = Math.max(0, (a.end - now) / 1000).toFixed(1);
-        const bw = 86, bh = 18;
-        const bx = side === 'l' ? 8 : W - bw - 8;
-        const by = H - 28 - i * 24;
-        ctx.fillStyle = a.type.col + 'cc';
-        ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 4); ctx.fill();
-        ctx.fillStyle = a.type.textCol;
-        ctx.font = '10px "DM Sans", sans-serif'; ctx.textAlign = 'left';
-        ctx.fillText(a.type.label + ' ' + rem + 's', bx + 6, by + 13);
-      });
-    });
-
-    if (shake.t >= 0) ctx.restore();
-  }
-
-  // ─── Game loop ────────────────────────────────────────────────────────────
-  function loop() {
-    animId = requestAnimationFrame(() => {
-      if (!paused && gameStarted && !serving) { update(); draw(); }
-      else if (serving) { draw(); }
-      loop();
-    });
-  }
-
-  // ─── Public controls ──────────────────────────────────────────────────────
-  function startGame() {
-    ls = 0; rs = 0;
-    lp.h = PH_DEFAULT; rp.h = PH_DEFAULT;
-    lp.y = H / 2 - PH_DEFAULT / 2; rp.y = H / 2 - PH_DEFAULT / 2;
-    particles = []; powerups = []; extraBalls = [];
-    activePowerups = { l: { active: [] }, r: { active: [] } };
-    winBanner.style.display = 'none';
-    startBtn.style.display  = 'none';
-    pauseBtn.style.display  = 'inline-block';
-    gameStarted = true; paused = false;
-    resetBall();
-    schedulePowerup();
-    loop();
-  }
-
-  function togglePause() {
-    paused = !paused;
-    pauseBtn.textContent = paused ? '▶ Resume' : '⏸ Pause';
-  }
-
-  function resetGame() {
-    cancelAnimationFrame(animId);
-    clearTimeout(pwTimer);
-    clearTimeout(countdownTmr);
-    gameStarted = false; paused = false; serving = false; countdown = 0;
-    ls = 0; rs = 0;
-    lp.h = PH_DEFAULT; rp.h = PH_DEFAULT;
-    lp.y = H / 2 - PH_DEFAULT / 2; rp.y = H / 2 - PH_DEFAULT / 2;
-    particles = []; powerups = []; extraBalls = [];
-    activePowerups = { l: { active: [] }, r: { active: [] } };
-    winBanner.style.display = 'none';
-    startBtn.style.display  = 'inline-block';
-    pauseBtn.style.display  = 'none';
-    pauseBtn.textContent    = '⏸ Pause';
-    draw();
-  }
-
-  // Expose reset for win banner button
-  window._pongReset = resetGame;
-
-  startBtn.addEventListener('click', startGame);
-  pauseBtn.addEventListener('click', togglePause);
-
-  // Initial draw so canvas isn't blank
-  draw();
+/* ── Input ── */
+const keys = {};
+addEventListener('keydown', e => {
+  if (['ArrowUp', 'ArrowDown', ' '].includes(e.key)) e.preventDefault();
+  keys[e.key.toLowerCase()] = true;
+  if (e.key === 'p' || e.key === 'Escape') pause();
 });
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+const touches = new Map();
+cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); touches.set(e.pointerId, Kit.canvasPoint(cv, e, W, H)); });
+cv.addEventListener('pointermove', e => { if (touches.has(e.pointerId) || e.pointerType === 'mouse') touches.set(e.pointerId, Kit.canvasPoint(cv, e, W, H)); });
+['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, e => { if (e.pointerType !== 'mouse') touches.delete(e.pointerId); }));
+cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') touches.delete(e.pointerId); });
+Kit.onHide(() => { if (G && (G.state === 'play' || G.state === 'serve')) pause(); });
+
+function pause() {
+  if (!G || G.state === 'over' || G.state === 'intro') return;
+  if (G.state !== 'paused') {
+    G.prev = G.state; G.state = 'paused';
+    Kit.overlay(ov, { title: 'Paused', text: `${G.s1} – ${G.s2}`, actions: [{ label: 'Resume', primary: true, onClick: () => { G.state = G.prev; Kit.overlay(ov, null); } }] });
+  }
+}
+
+/* ── Update ── */
+function movePaddle(p, dir, speed, dt) {
+  p.vy = Kit.lerp(p.vy, dir * speed, .35);
+  p.y = clamp(p.y + p.vy * dt, PH / 2 + 6, H - PH / 2 - 6);
+}
+function predictY() {
+  // project the ball to the AI's x, reflecting off walls
+  const b = G.ball;
+  if (b.dx <= 0) return H / 2;
+  let x = b.x, y = b.y, dy = b.dy;
+  const t = (W - 30 - x) / b.dx;
+  y += dy * t;
+  const span = H - 20;
+  y = ((y - 10) % (2 * span) + 2 * span) % (2 * span);
+  if (y > span) y = 2 * span - y;
+  return y + 10;
+}
+function update(dt) {
+  const p1 = G.p1, p2 = G.p2, b = G.ball;
+  // player 1 (left)
+  let d1 = (keys.w ? -1 : 0) + (keys.s ? 1 : 0);
+  if (mode !== 'pvp') d1 += (keys.arrowup ? -1 : 0) + (keys.arrowdown ? 1 : 0);
+  let t1 = null, t2 = null;
+  for (const t of touches.values()) { if (mode !== 'pvp' || t.x < W / 2) t1 = t.y; else t2 = t.y; }
+  if (t1 != null) { p1.vy = (t1 - p1.y) * .35; p1.y = clamp(p1.y + p1.vy, PH / 2 + 6, H - PH / 2 - 6); } else movePaddle(p1, clamp(d1, -1, 1), 8, dt);
+  // player 2 / AI (right)
+  if (mode === 'pvp') {
+    const d2 = (keys.arrowup ? -1 : 0) + (keys.arrowdown ? 1 : 0);
+    if (t2 != null) { p2.vy = (t2 - p2.y) * .35; p2.y = clamp(p2.y + p2.vy, PH / 2 + 6, H - PH / 2 - 6); } else movePaddle(p2, d2, 8, dt);
+  } else {
+    const ai = AI[mode];
+    p2.think -= dt;
+    if (p2.think <= 0) { p2.think = ai.react; p2.target = b.dx > 0 ? predictY() + rand(-ai.err, ai.err) : H / 2 + (b.y - H / 2) * .3; }
+    const diff = p2.target - p2.y;
+    movePaddle(p2, Math.abs(diff) < 6 ? 0 : Math.sign(diff) * Math.min(1, Math.abs(diff) / 30), ai.speed, dt);
+  }
+  if (G.state === 'serve') {
+    G.count -= dt;
+    b.y = H / 2 + Math.sin(G.count / 12) * 4;
+    if (G.count <= 0) serve();
+    return;
+  }
+  // ball — substeps prevent tunnelling at high speed
+  const steps = Math.ceil(Math.hypot(b.dx, b.dy) * dt / 6);
+  for (let s = 0; s < steps; s++) {
+    b.x += b.dx * dt / steps; b.y += b.dy * dt / steps;
+    if (b.y < 10) { b.y = 10; b.dy = Math.abs(b.dy); wall(); }
+    if (b.y > H - 10) { b.y = H - 10; b.dy = -Math.abs(b.dy); wall(); }
+    if (b.dx < 0 && b.x - 8 < 30 + PW && b.x > 24 && Math.abs(b.y - p1.y) < PH / 2 + 8) hit(p1, 1);
+    if (b.dx > 0 && b.x + 8 > W - 30 - PW && b.x < W - 24 && Math.abs(b.y - p2.y) < PH / 2 + 8) hit(p2, -1);
+    if (b.x < -20) return point(2);
+    if (b.x > W + 20) return point(1);
+  }
+  b.trail.push({ x: b.x, y: b.y }); if (b.trail.length > 12) b.trail.shift();
+  parts.update(dt);
+  G.flash = Math.max(0, G.flash - .04 * dt);
+}
+function wall() { sfx.tone(240, { type: 'square', dur: .04, vol: .03 }); }
+function hit(p, dir) {
+  const b = G.ball;
+  const off = clamp((b.y - p.y) / (PH / 2), -1, 1);
+  G.rally++;
+  const speed = Math.min(15, 6.2 + G.rally * .45);
+  const ang = off * 1.0 + clamp(p.vy * .03, -.25, .25); // edge hits and paddle motion add angle
+  b.dx = Math.cos(ang) * speed * dir; b.dy = Math.sin(ang) * speed;
+  b.x = dir > 0 ? 30 + PW + 8 : W - 30 - PW - 8;
+  parts.burst(b.x, b.y, dir > 0 ? '#f97316' : '#38bdf8', 10 + G.rally, { speed: 3 });
+  sfx.tone(dir > 0 ? 440 : 520, { type: 'square', dur: .06, vol: .04 });
+  if (G.rally > 6) shake.hit(Math.min(5, G.rally * .4));
+}
+function point(who) {
+  G.longest = Math.max(G.longest, G.rally);
+  if (who === 1) G.s1++; else G.s2++;
+  G.server = who === 1 ? -1 : 1; // loser serves... toward the scorer's opponent
+  shake.hit(10); G.flash = 1;
+  parts.burst(who === 1 ? W - 10 : 10, G.ball.y, who === 1 ? '#f97316' : '#38bdf8', 36, { speed: 5 });
+  sfx.score();
+  Kit.say(`${G.s1} to ${G.s2}`);
+  if (G.s1 >= WIN || G.s2 >= WIN) return end();
+  resetBall();
+}
+function end() {
+  G.state = 'over';
+  const p1won = G.s1 > G.s2;
+  let title, grad = true;
+  if (mode === 'pvp') title = p1won ? 'Orange wins' : 'Cyan wins';
+  else { title = p1won ? 'You win' : 'Computer wins'; grad = p1won; store.set(p1won ? 'wins' : 'losses', store.data[p1won ? 'wins' : 'losses'] + 1); }
+  if (grad) { sfx.win(); Kit.confetti(); } else sfx.lose();
+  Kit.overlay(ov, {
+    title, grad, text: `Final score ${G.s1} – ${G.s2}. Longest rally: ${G.longest} hits.`,
+    stats: mode === 'pvp' ? null : [[store.data.wins, 'Wins'], [store.data.losses, 'Losses']],
+    actions: [{ label: 'Rematch', primary: true, onClick: () => { Kit.overlay(ov, null); newMatch(); } }],
+  });
+}
+
+/* ── Draw ── */
+function draw() {
+  ctx.fillStyle = '#0c0c13'; ctx.fillRect(0, 0, W, H);
+  const sh = shake.apply(ctx);
+  ctx.fillStyle = 'rgba(226,232,240,.12)';
+  for (let y = 10; y < H; y += 26) ctx.fillRect(W / 2 - 2, y, 4, 14);
+  ctx.strokeStyle = 'rgba(226,232,240,.06)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(W / 2, H / 2, 60, 0, 7); ctx.stroke();
+  // scores
+  ctx.font = '96px "Bebas Neue", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillStyle = 'rgba(249,115,22,.22)'; ctx.fillText(G.s1, W / 2 - 90, 24);
+  ctx.fillStyle = 'rgba(56,189,248,.22)'; ctx.fillText(G.s2, W / 2 + 90, 24);
+  // paddles
+  paddle(30, G.p1.y, '#f97316');
+  paddle(W - 30 - PW, G.p2.y, '#38bdf8');
+  // ball + trail
+  const b = G.ball;
+  b.trail.forEach((t, i) => { ctx.fillStyle = `rgba(226,232,240,${i / b.trail.length * .25})`; ctx.beginPath(); ctx.arc(t.x, t.y, 8 * i / b.trail.length, 0, 7); ctx.fill(); });
+  ctx.shadowColor = '#e2e8f0'; ctx.shadowBlur = 14;
+  ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.arc(b.x, b.y, 8, 0, 7); ctx.fill();
+  ctx.shadowBlur = 0;
+  parts.draw(ctx);
+  if (sh) ctx.restore();
+  if (G.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${G.flash * .08})`; ctx.fillRect(0, 0, W, H); }
+  if (G.state === 'serve') {
+    const n = Math.ceil(G.count / 50);
+    ctx.font = '64px "Bebas Neue", sans-serif'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#e2e8f0'; ctx.fillText(n > 0 ? n : '', W / 2, H / 2 - 70);
+  }
+  if (G.rally >= 5 && G.state === 'play') {
+    ctx.font = '600 13px DM Sans, sans-serif'; ctx.textBaseline = 'bottom'; ctx.fillStyle = '#fbbf24';
+    ctx.fillText(`Rally ${G.rally}`, W / 2, H - 10);
+  }
+}
+function paddle(x, y, col) {
+  ctx.shadowColor = col; ctx.shadowBlur = 16;
+  ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x, y - PH / 2, PW, PH, 6); ctx.fill();
+  ctx.shadowBlur = 0;
+}
+
+function intro() {
+  newMatch(); G.state = 'intro';
+  $('#keys').innerHTML = mode === 'pvp'
+    ? 'Orange: <kbd>W</kbd><kbd>S</kbd> · Cyan: <kbd>↑</kbd><kbd>↓</kbd> · touch: drag on your half · <kbd>P</kbd> pause'
+    : 'Move with <kbd>W</kbd><kbd>S</kbd>, <kbd>↑</kbd><kbd>↓</kbd>, the mouse or by dragging · <kbd>P</kbd> pause';
+  Kit.overlay(ov, {
+    title: 'Pong', grad: true,
+    text: mode === 'pvp' ? 'Orange on the left, cyan on the right. First to 7.' : `You are orange. The computer (${mode}) is cyan. First to 7.`,
+    actions: [{ label: 'Serve', primary: true, onClick: () => { Kit.overlay(ov, null); newMatch(); } }],
+  });
+}
+// Mouse control for player 1 when not in 2-player mode
+cv.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' && mode !== 'pvp') touches.set('mouse', Kit.canvasPoint(cv, e, W, H)); });
+cv.addEventListener('pointerleave', () => touches.delete('mouse'));
+
+mode = store.data.mode; setMode(mode);
+intro();
+Kit.loop(dt => { if (G.state === 'play' || G.state === 'serve') update(dt); else parts.update(dt); draw(); });

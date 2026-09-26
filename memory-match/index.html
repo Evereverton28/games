@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Memory Match</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <title>Memory Match</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/kit.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <!-- ARCADE-NAV (injected) -->
@@ -26,44 +29,29 @@
 </style>
 <!-- /ARCADE-NAV -->
 
-  <div class="container">
-    <h1>Memory Match</h1>
-
-    <div class="hud">
-      <div class="score-card">
-        <span class="label">Moves</span>
-        <span class="value" id="moves">0</span>
-      </div>
-      <div class="score-card">
-        <span class="label">Pairs</span>
-        <span class="value" id="pairs">0 / 8</span>
-      </div>
-      <div class="score-card">
-        <span class="label">Time</span>
-        <span class="value" id="time">00:00</span>
-      </div>
+<main class="page" style="--page-w:600px">
+  <header class="head">
+    <div class="head-title">
+      <h1 class="title">Memory Match</h1>
+      <p class="tagline">Flip two cards at a time. Remember where everything is.</p>
     </div>
-
-    <div class="board" id="board"></div>
-
-    <div class="controls">
-      <div class="difficulty" id="difficulty">
-        <button class="diff-btn active" data-diff="easy">Easy</button>
-        <button class="diff-btn" data-diff="medium">Medium</button>
-        <button class="diff-btn" data-diff="hard">Hard</button>
-      </div>
-      <button id="restart">Restart</button>
-    </div>
-
-    <div class="overlay hidden" id="winOverlay">
-      <div class="win-card">
-        <h2>You Win!</h2>
-        <p id="winStats"></p>
-        <button id="playAgain">Play Again</button>
-      </div>
-    </div>
+    <div class="head-tools"><button class="icon-btn" id="sound"></button></div>
+  </header>
+  <div class="seg" id="diff"><button data-v="easy">Easy · 6 pairs</button><button data-v="medium">Medium · 10 pairs</button><button data-v="hard">Hard · 15 pairs</button></div>
+  <div class="stats">
+    <div class="stat"><span class="v" id="moves">0</span><span class="l">Moves</span></div>
+    <div class="stat"><span class="v" id="time">0:00</span><span class="l">Time</span></div>
+    <div class="stat"><span class="v" id="pairs">0/0</span><span class="l">Pairs</span></div>
+    <div class="stat hot"><span class="v" id="streak">0</span><span class="l">Streak</span></div>
   </div>
-
-  <script src="script.js"></script>
+  <div class="arena">
+    <div class="deck" id="deck"></div>
+    <div class="overlay" id="ov" hidden></div>
+  </div>
+  <div class="row grow"><button class="btn btn-sm" id="new">New game</button></div>
+  <p class="keys" id="bestLine"></p>
+</main>
+<script src="../shared/kit.js"></script>
+<script src="script.js"></script>
 </body>
 </html>

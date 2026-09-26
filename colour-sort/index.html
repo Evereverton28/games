@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
   <title>Colour Sort</title>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -26,47 +28,98 @@
 </style>
 <!-- /ARCADE-NAV -->
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/></symbol>
+  <symbol id="i-restart" viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.8L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-hint" viewBox="0 0 24 24"><path d="M9 18h6M10 21.5h4"/><path d="M12 2.5a6.5 6.5 0 00-4 11.6c.7.6 1 1.4 1 2.4h6c0-1 .3-1.8 1-2.4a6.5 6.5 0 00-4-11.6z"/></symbol>
+  <symbol id="i-tube" viewBox="0 0 24 24"><path d="M8 2.5h8M9.5 2.5v15a2.5 2.5 0 005 0v-15"/><path d="M19 8v6M16 11h6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+</svg>
 
-  <div class="container" id="container">
-    <h1>Colour Sort</h1>
-    <p class="subtitle">Click a tube to pick up colours — then click another to pour.</p>
+<div class="app">
+
+  <!-- ─── HOME ─────────────────────────────────────────── -->
+  <section class="screen home is-active" id="screen-home" aria-labelledby="home-title">
+    <div class="home-inner">
+      <h1 class="title" id="home-title">Colour Sort</h1>
+      <p class="lede">Pour between tubes until each one holds a single colour.</p>
+      <div class="demo-wrap" aria-hidden="true"><canvas id="demo"></canvas></div>
+      <div class="home-actions">
+        <button class="btn btn-primary" id="btn-continue">Play level 1</button>
+        <div class="home-row">
+          <button class="btn" id="btn-levels">All levels</button>
+          <button class="btn" id="btn-daily">
+            <svg class="ico"><use href="#i-cal"/></svg><span>Daily puzzle</span>
+          </button>
+        </div>
+      </div>
+      <dl class="home-stats">
+        <div><dt>Stars</dt><dd id="h-stars">0</dd></div>
+        <div><dt>Levels</dt><dd id="h-levels">0/60</dd></div>
+        <div><dt>Daily streak</dt><dd id="h-streak">0</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ─── LEVELS ───────────────────────────────────────── -->
+  <section class="screen levels" id="screen-levels" aria-labelledby="levels-title">
+    <header class="bar">
+      <button class="icon-btn" data-go="home" aria-label="Back to start"><svg class="ico"><use href="#i-back"/></svg></button>
+      <h2 class="bar-title" id="levels-title">Levels</h2>
+      <span class="bar-stars"><svg class="ico star-ico"><use href="#i-star"/></svg><span id="l-stars">0</span></span>
+    </header>
+    <div class="chapters" id="chapters"></div>
+  </section>
+
+  <!-- ─── GAME ─────────────────────────────────────────── -->
+  <section class="screen game" id="screen-game" aria-labelledby="g-title">
+    <header class="bar">
+      <button class="icon-btn" id="btn-exit" aria-label="Back to levels"><svg class="ico"><use href="#i-back"/></svg></button>
+      <div class="bar-heading">
+        <h2 class="bar-title" id="g-title">Level 1</h2>
+        <span class="bar-sub" id="g-sub">First pours</span>
+      </div>
+      <button class="icon-btn" id="btn-settings" aria-label="Settings"><svg class="ico"><use href="#i-gear"/></svg></button>
+    </header>
 
     <div class="hud">
-      <div class="hud-item">
-        <span class="hud-label">LEVEL</span>
-        <span class="hud-value" id="level-display">1</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">MOVES</span>
-        <span class="hud-value" id="moves-display">0</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">BEST</span>
-        <span class="hud-value" id="best-display">—</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">HINTS</span>
-        <span class="hud-value" id="hints-display">3</span>
+      <div class="hud-cell"><span class="hud-v" id="g-moves">0</span><span class="hud-l">Moves</span></div>
+      <div class="hud-cell"><span class="hud-v" id="g-par">0</span><span class="hud-l">Par</span></div>
+      <div class="hud-cell hud-stars" id="g-stars" title="">
+        <span class="meter">
+          <svg class="ico"><use href="#i-star"/></svg><svg class="ico"><use href="#i-star"/></svg><svg class="ico"><use href="#i-star"/></svg>
+        </span>
+        <span class="hud-l" id="g-stars-note">On track</span>
       </div>
     </div>
 
-    <div class="tubes-wrapper" id="tubes-wrapper"></div>
-
-    <div class="controls">
-      <button id="btn-undo">↩ Undo</button>
-      <button id="btn-hint">💡 Hint</button>
-      <button id="btn-restart">↺ Restart</button>
-      <button id="btn-next" style="display:none">Next Level →</button>
+    <div class="stage" id="stage">
+      <canvas id="board" tabindex="0" role="application"
+              aria-label="Tubes. Use number keys or arrow keys and Enter to pick a tube, then pick another to pour."></canvas>
+      <p class="coach" id="coach" aria-hidden="true"></p>
     </div>
 
-    <div id="hint-msg" class="hint-msg" style="display:none"></div>
+    <nav class="toolbar" aria-label="Game tools">
+      <button class="tool" id="t-undo" title="Undo (Z)"><svg class="ico"><use href="#i-undo"/></svg><span>Undo</span></button>
+      <button class="tool" id="t-restart" title="Restart (R)"><svg class="ico"><use href="#i-restart"/></svg><span>Restart</span></button>
+      <button class="tool" id="t-hint" title="Hint (H) — caps this level at 2 stars"><svg class="ico"><use href="#i-hint"/></svg><span>Hint</span></button>
+      <button class="tool" id="t-tube" title="Add an empty tube — caps this level at 1 star"><svg class="ico"><use href="#i-tube"/></svg><span>Add tube</span></button>
+    </nav>
+  </section>
+</div>
 
-    <div id="win-banner" class="win-banner" style="display:none">
-      <span>Level Complete!</span>
-    </div>
-  </div>
+<!-- ─── MODAL ─────────────────────────────────────────── -->
+<div class="modal" id="modal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="m-title" id="sheet"></div>
+</div>
 
-  <canvas id="particles-canvas"></canvas>
-  <script src="script.js"></script>
+<canvas id="fx" aria-hidden="true"></canvas>
+<div class="sr-only" id="sr" aria-live="polite"></div>
+
+<script src="script.js"></script>
 </body>
 </html>

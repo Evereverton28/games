@@ -2,9 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DINO RUN</title>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <title>Dinosaur Run</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/kit.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -26,32 +29,30 @@
 </style>
 <!-- /ARCADE-NAV -->
 
-  <div class="container">
-    <h1>DINO RUN</h1>
-
-    <div class="hud">
-      <div class="score-card" id="score-card">
-        <span class="score-label">SCORE</span>
-        <span class="score-value" id="score-display">00000</span>
-      </div>
-      <div class="score-card">
-        <span class="score-label">HIGH</span>
-        <span class="score-value" id="hi-display">00000</span>
-      </div>
+<main class="page" style="--page-w:820px">
+  <header class="head">
+    <div class="head-title">
+      <h1 class="title">Dinosaur Run</h1>
+      <p class="tagline">Jump the cacti, duck the pterodactyls, outrun the night.</p>
     </div>
-
-    <div class="canvas-wrapper">
-      <canvas id="gameCanvas" width="900" height="280"></canvas>
-      <div class="overlay" id="overlay">
-        <div class="overlay-title" id="overlay-title">DINO RUN</div>
-        <div class="overlay-sub" id="overlay-sub">PRESS SPACE OR TAP TO START</div>
-        <button id="start-btn">START GAME</button>
-      </div>
-    </div>
-
-    <p class="hint">SPACE / ↑ / TAP — JUMP &nbsp;|&nbsp; ↓ — DUCK</p>
+    <div class="head-tools"><button class="icon-btn" id="sound"></button></div>
+  </header>
+  <div class="stats">
+    <div class="stat"><span class="v" id="score">00000</span><span class="l">Score</span></div>
+    <div class="stat"><span class="v" id="best">00000</span><span class="l">Best</span></div>
+    <div class="stat"><span class="v" id="speed">1.0×</span><span class="l">Speed</span></div>
   </div>
-
-  <script src="script.js"></script>
+  <div class="arena">
+    <canvas id="cv" aria-label="Dinosaur run. Space or up to jump, down to duck."></canvas>
+    <div class="overlay" id="ov" hidden></div>
+  </div>
+  <div class="pad">
+    <button data-k="jump" aria-label="Jump"><svg class="ico" viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></svg></button>
+    <button data-k="duck" aria-label="Duck"><svg class="ico" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+  </div>
+  <p class="keys"><kbd>Space</kbd> or <kbd>↑</kbd> jump (hold for higher) · <kbd>↓</kbd> duck or drop fast · <kbd>P</kbd> pause</p>
+</main>
+<script src="../shared/kit.js"></script>
+<script src="script.js"></script>
 </body>
 </html>

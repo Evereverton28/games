@@ -1,506 +1,256 @@
-/* ════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    SPACE INVADERS
-   Player ship, descending invader fleet, bullets both ways,
-   destructible bunkers, escalating waves, lives, high score.
-   ════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════ */
+const { $, clamp, rand, randInt, pick, sfx } = Kit;
+const W = 520, H = 620, PX = 3, GROUND = 580, PLAYER_Y = 548;
+const cv = $('#cv'), ctx = Kit.fitCanvas(cv, W, H), ov = $('#ov');
+const store = Kit.store('invaders', { best: 0 });
+const parts = new Kit.Particles(), shake = new Kit.Shake();
+Kit.soundToggle($('#sound'));
 
-/* ─── Safe storage shim ─── */
-(function () {
-  try { const t="__ls__"; localStorage.setItem(t,"1"); localStorage.removeItem(t); }
-  catch (e) {
-    let m={}; const safe={getItem:k=>k in m?m[k]:null,setItem:(k,v)=>m[k]=String(v),
-      removeItem:k=>delete m[k],clear:()=>m={},key:i=>Object.keys(m)[i]||null,get length(){return Object.keys(m).length;}};
-    try { Object.defineProperty(window,"localStorage",{value:safe,configurable:true}); } catch(e2){ window.localStorage=safe; }
-  }
-})();
-
-const $ = id => document.getElementById(id);
-const canvas = $('gameCanvas');
-const ctx = canvas.getContext('2d');
-const W = canvas.width, H = canvas.height;
-
-const scoreEl = $('score-display');
-const waveEl  = $('wave-display');
-const livesEl = $('lives-display');
-const bestEl  = $('best-display');
-const overlay = $('overlay');
-const overlayTitle = $('overlay-title');
-const overlaySub = $('overlay-sub');
-const startBtn = $('start-btn');
-
-const C = {
-  cyan:'#38bdf8', orange:'#f97316', danger:'#ef4444', text:'#e2e8f0',
-  muted:'#64748b', green:'#22c55e', purple:'#a78bfa', yellow:'#facc15',
+/* ── Sprites (two frames each) ── */
+const ART = {
+  squid: [['...##...', '..####..', '.######.', '##.##.##', '########', '..#..#..', '.#.##.#.', '#.#..#.#'],
+          ['...##...', '..####..', '.######.', '##.##.##', '########', '.#.##.#.', '#......#', '.#....#.']],
+  crab: [['..#.....#..', '...#...#...', '..#######..', '.##.###.##.', '###########', '#.#######.#', '#.#.....#.#', '...##.##...'],
+         ['..#.....#..', '#..#...#..#', '#.#######.#', '###.###.###', '###########', '.#########.', '..#.....#..', '.#.......#.']],
+  octo: [['....####....', '.##########.', '############', '###..##..###', '############', '...##..##...', '..##.##.##..', '##........##'],
+         ['....####....', '.##########.', '############', '###..##..###', '############', '..###..###..', '.##..##..##.', '..##....##..']],
+  ufo: [['.....######.....', '...##########...', '..############..', '.##.##.##.##.##.', '################', '..###..##..###..', '...#........#...']],
+  ship: [['......#......', '.....###.....', '.....###.....', '.###########.', '#############', '#############', '#############']],
 };
+const COL = { squid: '#a78bfa', crab: '#38bdf8', octo: '#22c55e', ufo: '#f43f5e', ship: '#f97316' };
+const PTS = { squid: 30, crab: 20, octo: 10 };
+const spr = {};
+for (const k in ART) spr[k] = ART[k].map(rows => {
+  const c = document.createElement('canvas'); c.width = rows[0].length * PX; c.height = rows.length * PX;
+  const x = c.getContext('2d'); x.fillStyle = COL[k];
+  rows.forEach((r, y) => [...r].forEach((ch, i) => { if (ch === '#') x.fillRect(i * PX, y * PX, PX, PX); }));
+  return c;
+});
 
-/* ── Audio ── */
-let audioCtx = null;
-function tone(freq, type='square', dur=0.08, vol=0.05, freqEnd) {
-  try {
-    if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
-    o.connect(g); g.connect(audioCtx.destination); o.type=type;
-    o.frequency.setValueAtTime(freq, audioCtx.currentTime);
-    if (freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd, audioCtx.currentTime+dur);
-    g.gain.setValueAtTime(vol, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+dur);
-    o.start(); o.stop(audioCtx.currentTime+dur);
-  } catch(_){}
+/* ── Bunkers: pixel grids that erode ── */
+const BUNKER = ['....############....', '..################..', '.##################.', '####################', '####################', '####################', '####################', '######........######', '#####..........#####', '####............####'];
+const BP = 3;
+function makeBunkers() {
+  return [0, 1, 2, 3].map(i => {
+    const x = 58 + i * 116, y = 468;
+    const cells = BUNKER.map(r => [...r].map(ch => ch === '#' ? 1 : 0));
+    return { x, y, cells };
+  });
 }
-const Sfx = {
-  shoot:   () => tone(880,'square',0.08,0.04,440),
-  hit:     () => tone(220,'square',0.09,0.06,120),
-  explode: () => tone(90,'sawtooth',0.25,0.09,50),
-  wave:    () => [440,554,659].forEach((f,i)=>setTimeout(()=>tone(f,'triangle',0.2,0.06),i*90)),
-  over:    () => [330,247,165].forEach((f,i)=>setTimeout(()=>tone(f,'sawtooth',0.3,0.08),i*130)),
-};
-
-/* ── Game state ── */
-let running = false, paused = false, over = false;
-let score = 0, wave = 1, lives = 3;
-let best = parseInt(localStorage.getItem('si_best') || '0');
-let keys = {};
-let frameId = null, lastTime = 0;
-
-const player = { x: W/2, y: H-46, w: 46, h: 22, speed: 6, cooldown: 0 };
-let bullets = [];      // player shots {x,y,vy}
-let enemyBullets = []; // {x,y,vy}
-let invaders = [];     // {x,y,w,h,type,alive,col,phase}
-let bunkers = [];      // {x,y,blocks:[[..]]}
-let particles = [];
-let stars = [];
-
-let fleetDir = 1;      // 1 = right, -1 = left
-let fleetSpeed = 0.5;
-let fleetDrop = 0;     // pending drop
-let stepTimer = 0, stepInterval = 34;  // animation frames between "steps"
-let animFrame = 0;
-let enemyFireTimer = 0;
-let shakeT = 0, shakeX = 0, shakeY = 0;
-
-const INVADER_ROWS = 5, INVADER_COLS = 8;
-const INVADER_TYPES = [
-  { row:0, col:C.purple, pts:30 },
-  { row:1, col:C.cyan,   pts:20 },
-  { row:2, col:C.cyan,   pts:20 },
-  { row:3, col:C.orange, pts:10 },
-  { row:4, col:C.orange, pts:10 },
-];
-
-/* ── Init stars ── */
-function initStars() {
-  stars = [];
-  for (let i=0;i<50;i++) stars.push({ x:Math.random()*W, y:Math.random()*H, r:Math.random()*1.4+0.3, tw:Math.random()*Math.PI*2 });
-}
-
-/* ── Build a wave ── */
-function buildWave() {
-  invaders = [];
-  const marginX = 70, marginTop = 70;
-  const gapX = (W - marginX*2) / (INVADER_COLS-1);
-  const gapY = 42;
-  for (let r=0;r<INVADER_ROWS;r++) {
-    for (let c=0;c<INVADER_COLS;c++) {
-      const t = INVADER_TYPES[r];
-      invaders.push({
-        x: marginX + c*gapX, y: marginTop + r*gapY,
-        w: 30, h: 22, type:r, col:t.col, pts:t.pts,
-        alive:true, phase:0,
-      });
+function bunkerHit(px, py, radius, fromAbove) {
+  for (const b of G.bunkers) {
+    const cx = Math.floor((px - b.x) / BP), cy = Math.floor((py - b.y) / BP);
+    if (cx < -1 || cy < -1 || cx > BUNKER[0].length || cy > BUNKER.length) continue;
+    if (!(b.cells[cy] && b.cells[cy][cx])) continue;
+    // erode a ragged crater
+    for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
+      const yy = cy + dy + (fromAbove ? 1 : -1), xx = cx + dx;
+      if (b.cells[yy] && b.cells[yy][xx] && Math.hypot(dx, dy) <= radius + .4 && Math.random() < .8) b.cells[yy][xx] = 0;
     }
-  }
-  fleetDir = 1;
-  fleetSpeed = 0.4 + wave*0.12;
-  stepInterval = Math.max(10, 34 - wave*3);
-  stepTimer = 0;
-  enemyBullets = [];
-  bullets = [];
-}
-
-/* ── Build bunkers ── */
-function buildBunkers() {
-  bunkers = [];
-  const count = 4;
-  const shape = [
-    [0,1,1,1,1,1,0],
-    [1,1,1,1,1,1,1],
-    [1,1,1,1,1,1,1],
-    [1,1,0,0,0,1,1],
-    [1,0,0,0,0,0,1],
-  ];
-  const blockSize = 9;
-  const bunkerW = shape[0].length * blockSize;
-  const spacing = W / count;
-  for (let b=0;b<count;b++) {
-    const bx = spacing*b + spacing/2 - bunkerW/2;
-    const by = H - 130;
-    const blocks = shape.map(row => row.slice());
-    bunkers.push({ x:bx, y:by, blocks, blockSize });
-  }
-}
-
-/* ── Particles ── */
-function boom(x,y,col,n=14) {
-  for (let i=0;i<n;i++) {
-    const a=Math.random()*Math.PI*2, s=Math.random()*3+0.5;
-    particles.push({ x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:1, decay:0.03+Math.random()*0.03, r:2+Math.random()*2.5, col });
-  }
-}
-
-/* ── Reset / flow ── */
-function resetGame() {
-  score = 0; wave = 1; lives = 3; over = false;
-  player.x = W/2; player.cooldown = 0;
-  particles = [];
-  initStars();
-  buildWave(); buildBunkers();
-  updateHud();
-}
-function startGame() {
-  try{ if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); }catch(_){}
-  resetGame();
-  running = true; paused = false; over = false;
-  overlay.classList.add('hidden');
-  lastTime = 0;
-  cancelAnimationFrame(frameId);
-  frameId = requestAnimationFrame(loop);
-}
-
-/* ── Player shooting ── */
-function fire() {
-  if (player.cooldown > 0) return;
-  bullets.push({ x: player.x, y: player.y - player.h/2, vy: -9, w:4, h:14 });
-  player.cooldown = 16;
-  Sfx.shoot();
-}
-
-/* ── Collision helpers ── */
-function rectHit(ax,ay,aw,ah,bx,by,bw,bh) {
-  return Math.abs(ax-bx) < (aw+bw)/2 && Math.abs(ay-by) < (ah+bh)/2;
-}
-
-/* Damage a bunker block at world point; returns true if a block was hit */
-function hitBunker(px, py) {
-  for (const bk of bunkers) {
-    const localX = px - bk.x, localY = py - bk.y;
-    if (localX < 0 || localY < 0) continue;
-    const col = Math.floor(localX / bk.blockSize);
-    const row = Math.floor(localY / bk.blockSize);
-    if (row>=0 && row<bk.blocks.length && col>=0 && col<bk.blocks[0].length) {
-      if (bk.blocks[row][col]) {
-        bk.blocks[row][col] = 0;
-        // chip a couple neighbours for a nicer crater sometimes
-        if (Math.random()<0.4 && bk.blocks[row][col+1]) bk.blocks[row][col+1]=0;
-        return true;
-      }
-    }
+    b.cells[cy][cx] = 0;
+    parts.burst(px, py, '#f97316', 4, { speed: 1.5 });
+    return true;
   }
   return false;
 }
 
-/* ── Update ── */
-function update() {
-  // Player movement
-  if (keys['ArrowLeft']||keys['KeyA']||keys['mobileLeft'])  player.x -= player.speed;
-  if (keys['ArrowRight']||keys['KeyD']||keys['mobileRight']) player.x += player.speed;
-  player.x = Math.max(player.w/2, Math.min(W-player.w/2, player.x));
-  if (player.cooldown>0) player.cooldown--;
-  if ((keys['Space']||keys['mobileFire'])) fire();
-
-  // Player bullets
-  bullets.forEach(b => b.y += b.vy);
-  bullets = bullets.filter(b => {
-    if (b.y < -20) return false;
-    // bunker hit
-    if (hitBunker(b.x, b.y)) { boom(b.x,b.y,C.muted,5); return false; }
-    // invader hit
-    for (const inv of invaders) {
-      if (inv.alive && rectHit(b.x,b.y,b.w,b.h,inv.x,inv.y,inv.w,inv.h)) {
-        inv.alive = false;
-        score += inv.pts;
-        boom(inv.x, inv.y, inv.col, 16);
-        Sfx.hit();
-        bump(scoreEl);
-        updateHud();
-        return false;
-      }
-    }
-    return true;
-  });
-
-  // Fleet movement (stepped)
-  const alive = invaders.filter(i => i.alive);
-  stepTimer++;
-  const aliveRatio = alive.length / (INVADER_ROWS*INVADER_COLS);
-  const curInterval = Math.max(6, stepInterval * (0.3 + aliveRatio*0.7)); // speed up as they die
-  if (stepTimer >= curInterval) {
-    stepTimer = 0;
-    animFrame ^= 1;
-    // find fleet bounds
-    let minX=Infinity, maxX=-Infinity;
-    alive.forEach(i => { minX=Math.min(minX,i.x-i.w/2); maxX=Math.max(maxX,i.x+i.w/2); });
-    let drop = false;
-    if (fleetDir>0 && maxX + fleetSpeed*8 >= W-10) drop = true;
-    if (fleetDir<0 && minX - fleetSpeed*8 <= 10)   drop = true;
-    if (drop) {
-      fleetDir *= -1;
-      alive.forEach(i => i.y += 20);
-    } else {
-      alive.forEach(i => i.x += fleetDir * fleetSpeed * 8);
-    }
-    // reached player line?
-    for (const i of alive) {
-      if (i.y + i.h/2 >= player.y - player.h/2) { loseLife(true); break; }
-    }
-  }
-
-  // Enemy fire
-  enemyFireTimer--;
-  if (enemyFireTimer <= 0 && alive.length) {
-    enemyFireTimer = Math.max(18, 60 - wave*4 - Math.random()*20);
-    // pick a random column's bottom-most invader
-    const shooter = alive[Math.floor(Math.random()*alive.length)];
-    // find bottom-most in that column-ish x
-    let bottom = shooter;
-    for (const i of alive) if (Math.abs(i.x-shooter.x)<6 && i.y>bottom.y) bottom=i;
-    enemyBullets.push({ x:bottom.x, y:bottom.y+bottom.h/2, vy: 3.2+wave*0.25, w:4, h:12 });
-  }
-
-  // Enemy bullets
-  enemyBullets.forEach(b => b.y += b.vy);
-  enemyBullets = enemyBullets.filter(b => {
-    if (b.y > H+20) return false;
-    if (hitBunker(b.x, b.y)) { boom(b.x,b.y,C.muted,5); return false; }
-    if (rectHit(b.x,b.y,b.w,b.h,player.x,player.y,player.w*0.7,player.h)) {
-      loseLife(false);
-      return false;
-    }
-    return true;
-  });
-
-  // Particles
-  particles.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.vy+=0.04; p.life-=p.decay; });
-  particles = particles.filter(p => p.life>0);
-
-  // Shake decay
-  if (shakeT>0) { shakeT--; shakeX=(Math.random()-0.5)*6; shakeY=(Math.random()-0.5)*6; }
-  else { shakeX=shakeY=0; }
-
-  // Wave cleared?
-  if (alive.length === 0) {
-    wave++;
-    Sfx.wave();
-    updateHud();
-    buildWave();
-    // small breather: lift fleet a touch
-  }
+/* ── State ── */
+let G;
+function newGame() {
+  G = { state: 'play', score: 0, lives: 3, wave: 0, extra: false, bunkers: makeBunkers() };
+  newWave();
 }
-
-function loseLife(fromFleet) {
-  lives--;
-  Sfx.explode();
-  boom(player.x, player.y, C.orange, 24);
-  shakeT = 18;
-  updateHud();
-  if (lives <= 0) { endGame(); return; }
-  if (fromFleet) {
-    // push fleet back up a bit so it's not instantly game over again
-    invaders.forEach(i => { if(i.alive) i.y -= 40; });
-  }
-  player.x = W/2;
-  enemyBullets = [];
-}
-
-function endGame() {
-  running = false; over = true;
-  cancelAnimationFrame(frameId);
-  Sfx.over();
-  if (score > best) { best = score; localStorage.setItem('si_best', String(best)); }
-  updateHud();
-  overlayTitle.textContent = 'GAME OVER';
-  overlaySub.innerHTML = `Score <strong style="color:var(--x-color)">${score}</strong> · Wave ${wave}` +
-    (score>=best && score>0 ? '<br>New best! 🏆' : `<br>Best: ${best}`);
-  startBtn.textContent = 'PLAY AGAIN';
-  overlay.classList.remove('hidden');
-}
-
-/* ── Draw ── */
-function drawShip(x,y) {
-  ctx.save();
-  ctx.translate(x,y);
-  // glow
-  ctx.shadowColor = C.cyan; ctx.shadowBlur = 12;
-  ctx.fillStyle = C.cyan;
-  // hull
-  ctx.beginPath();
-  ctx.moveTo(0,-12);
-  ctx.lineTo(6,-2);
-  ctx.lineTo(20,8);
-  ctx.lineTo(8,8);
-  ctx.lineTo(6,4);
-  ctx.lineTo(-6,4);
-  ctx.lineTo(-8,8);
-  ctx.lineTo(-20,8);
-  ctx.lineTo(-6,-2);
-  ctx.closePath();
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  // cockpit
-  ctx.fillStyle = '#bae6fd';
-  ctx.beginPath(); ctx.arc(0,-2,3.5,0,Math.PI*2); ctx.fill();
-  // thruster glow
-  ctx.fillStyle = C.orange;
-  ctx.globalAlpha = 0.6 + Math.random()*0.3;
-  ctx.beginPath(); ctx.moveTo(-4,8); ctx.lineTo(0,14+Math.random()*4); ctx.lineTo(4,8); ctx.closePath(); ctx.fill();
-  ctx.restore();
-}
-
-function drawInvader(inv) {
-  const x=inv.x, y=inv.y, s=inv.w/2;
-  ctx.save();
-  ctx.translate(x,y);
-  ctx.fillStyle = inv.col;
-  ctx.shadowColor = inv.col; ctx.shadowBlur = 8;
-  // simple pixel-ish alien; legs alternate with animFrame
-  const f = animFrame;
-  // body
-  ctx.fillRect(-s*0.7, -s*0.5, s*1.4, s*0.9);
-  // head bump
-  ctx.fillRect(-s*0.45, -s*0.85, s*0.9, s*0.4);
-  // eyes (cut-out)
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#06060b';
-  ctx.fillRect(-s*0.35, -s*0.45, s*0.22, s*0.28);
-  ctx.fillRect( s*0.13, -s*0.45, s*0.22, s*0.28);
-  // legs
-  ctx.fillStyle = inv.col;
-  const legY = s*0.4;
-  if (f===0) {
-    ctx.fillRect(-s*0.6, legY, s*0.25, s*0.4);
-    ctx.fillRect( s*0.35, legY, s*0.25, s*0.4);
-  } else {
-    ctx.fillRect(-s*0.45, legY, s*0.25, s*0.4);
-    ctx.fillRect( s*0.2, legY, s*0.25, s*0.4);
-  }
-  ctx.restore();
-}
-
-function drawBunkers() {
-  for (const bk of bunkers) {
-    for (let r=0;r<bk.blocks.length;r++) {
-      for (let c=0;c<bk.blocks[0].length;c++) {
-        if (bk.blocks[r][c]) {
-          ctx.fillStyle = C.green;
-          ctx.globalAlpha = 0.9;
-          ctx.fillRect(bk.x + c*bk.blockSize, bk.y + r*bk.blockSize, bk.blockSize-1, bk.blockSize-1);
-        }
-      }
-    }
-  }
-  ctx.globalAlpha = 1;
-}
-
-function draw() {
-  ctx.save();
-  if (shakeT>0) ctx.translate(shakeX, shakeY);
-
-  ctx.clearRect(-10,-10,W+20,H+20);
-
-  // stars
-  stars.forEach(s => {
-    s.tw += 0.05;
-    ctx.globalAlpha = 0.4 + Math.sin(s.tw)*0.3;
-    ctx.fillStyle = '#93c5fd';
-    ctx.fillRect(s.x, s.y, s.r, s.r);
-  });
-  ctx.globalAlpha = 1;
-
-  drawBunkers();
-
-  invaders.forEach(i => { if (i.alive) drawInvader(i); });
-
-  // player bullets
-  ctx.fillStyle = C.cyan;
-  ctx.shadowColor = C.cyan; ctx.shadowBlur = 8;
-  bullets.forEach(b => ctx.fillRect(b.x-2, b.y-7, 4, 14));
-  ctx.shadowBlur = 0;
-
-  // enemy bullets
-  ctx.fillStyle = C.orange;
-  enemyBullets.forEach(b => {
-    ctx.fillRect(b.x-2, b.y-6, 4, 12);
-  });
-
-  // player
-  if (!over) drawShip(player.x, player.y);
-
-  // particles
-  particles.forEach(p => {
-    ctx.globalAlpha = Math.max(0,p.life);
-    ctx.fillStyle = p.col;
-    ctx.beginPath(); ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2); ctx.fill();
-  });
-  ctx.globalAlpha = 1;
-
-  // pause veil
-  if (paused) {
-    ctx.fillStyle = 'rgba(6,6,11,0.6)';
-    ctx.fillRect(0,0,W,H);
-    ctx.fillStyle = C.text;
-    ctx.font = "600 28px 'Bebas Neue', sans-serif";
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('PAUSED', W/2, H/2);
-  }
-
-  ctx.restore();
-}
-
-/* ── HUD ── */
-function bump(el){ el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
-function updateHud() {
-  scoreEl.textContent = score;
-  waveEl.textContent = wave;
-  livesEl.textContent = lives>0 ? '♥'.repeat(lives) : '—';
-  bestEl.textContent = Math.max(best, score);
-}
-
-/* ── Loop ── */
-function loop(ts) {
-  if (!running) return;
-  frameId = requestAnimationFrame(loop);
-  if (!paused) update();
-  draw();
+function newWave() {
+  G.wave++;
+  const top = 90 + Math.min(5, G.wave - 1) * 16;
+  G.aliens = [];
+  const types = ['squid', 'crab', 'crab', 'octo', 'octo'];
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 11; c++) G.aliens.push({ type: types[r], x: 44 + c * 38, y: top + r * 34, alive: true });
+  G.dir = 1; G.stepT = 0; G.frame = 0; G.note = 0; G.drop = false;
+  G.ship = { x: W / 2, dead: 0, inv: 0 }; G.shot = null; G.bombs = [];
+  G.ufo = null; G.ufoT = rand(900, 1500); G.banner = 120;
+  if (G.wave > 1 && G.wave % 3 === 1) G.bunkers = makeBunkers(); // fresh bunkers every third wave
+  hud();
 }
 
 /* ── Input ── */
-window.addEventListener('keydown', e => {
-  if (['ArrowLeft','ArrowRight','KeyA','KeyD','Space'].includes(e.code)) { keys[e.code]=true; e.preventDefault(); }
-  else if (e.code==='KeyP') { if (running && !over) { paused=!paused; } }
+const keys = {};
+addEventListener('keydown', e => {
+  if (['ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
+  keys[e.key] = true;
+  if (e.key === 'p' || e.key === 'Escape') pause();
 });
-window.addEventListener('keyup', e => { keys[e.code]=false; });
-
-function bindHold(id, key) {
-  const el = $(id); if (!el) return;
-  const on = e => { e.preventDefault(); keys[key]=true; el.classList.add('pressed'); };
-  const off = () => { keys[key]=false; el.classList.remove('pressed'); };
-  el.addEventListener('pointerdown', on);
-  el.addEventListener('pointerup', off);
-  el.addEventListener('pointerleave', off);
-  el.addEventListener('pointercancel', off);
+addEventListener('keyup', e => { keys[e.key] = false; });
+document.querySelectorAll('.pad button').forEach(b => Kit.holdButton(b, () => keys['pad' + b.dataset.k] = true, () => keys['pad' + b.dataset.k] = false));
+cv.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') return; fire(); });
+Kit.onHide(() => { if (G && G.state === 'play') pause(); });
+function pause() {
+  if (!G) return;
+  if (G.state === 'play') { G.state = 'paused'; Kit.overlay(ov, { title: 'Paused', text: `Wave ${G.wave}.`, actions: [{ label: 'Resume', primary: true, onClick: pause }] }); }
+  else if (G.state === 'paused') { G.state = 'play'; Kit.overlay(ov, null); }
 }
-bindHold('btn-left','mobileLeft');
-bindHold('btn-right','mobileRight');
-bindHold('btn-fire','mobileFire');
+function fire() {
+  if (!G || G.state !== 'play' || G.shot || G.ship.dead) return;
+  G.shot = { x: G.ship.x, y: PLAYER_Y - 6 };
+  sfx.tone(900, { type: 'square', dur: .08, vol: .03, slide: 300 });
+}
 
-startBtn.addEventListener('click', startGame);
+/* ── Update ── */
+const NOTES = [98, 87, 78, 73];
+function update(dt) {
+  const s = G.ship;
+  G.banner = Math.max(0, G.banner - dt);
+  if (s.dead > 0) { s.dead -= dt; if (s.dead <= 0) { if (G.lives <= 0) return gameOver(); s.inv = 90; s.x = W / 2; G.bombs = []; } parts.update(dt); return; }
+  s.inv = Math.max(0, s.inv - dt);
+  const mv = (keys.ArrowLeft || keys.a || keys.padleft ? -1 : 0) + (keys.ArrowRight || keys.d || keys.padright ? 1 : 0);
+  s.x = clamp(s.x + mv * 4 * dt, 24, W - 24);
+  if (keys[' '] || keys.padfire || keys.ArrowUp) fire();
 
-/* ── Boot: draw an idle starfield behind the overlay ── */
-initStars();
-buildWave(); buildBunkers();
-updateHud();
-(function idleDraw(){
-  if (!running) {
-    draw();
-    requestAnimationFrame(idleDraw);
+  // player shot
+  if (G.shot) {
+    G.shot.y -= 11 * dt;
+    const sh = G.shot;
+    if (sh.y < 30) G.shot = null;
+    else if (bunkerHit(sh.x, sh.y, 1, false)) G.shot = null;
+    else {
+      for (const a of G.aliens) {
+        if (!a.alive) continue;
+        const w = spr[a.type][0].width, h = spr[a.type][0].height;
+        if (sh.x > a.x - w / 2 && sh.x < a.x + w / 2 && sh.y > a.y - h / 2 && sh.y < a.y + h / 2) {
+          a.alive = false; G.shot = null; addScore(PTS[a.type]);
+          parts.burst(a.x, a.y, COL[a.type], 14, { speed: 3 });
+          sfx.noise({ dur: .15, vol: .07, filter: 2400 });
+          break;
+        }
+      }
+      if (G.shot && G.ufo && Math.abs(sh.x - G.ufo.x) < 24 && Math.abs(sh.y - 56) < 12) {
+        const pts = pick([50, 100, 150, 200, 300]);
+        addScore(pts); G.pops = { x: G.ufo.x, text: pts, life: 60 };
+        parts.burst(G.ufo.x, 56, '#f43f5e', 26, { speed: 4 }); sfx.arp([880, 660, 990, 1320], { type: 'square', gap: .05, dur: .1, vol: .03 });
+        G.ufo = null; G.shot = null;
+      }
+      // shots can hit bombs
+      if (G.shot) for (const b of G.bombs) if (Math.abs(b.x - sh.x) < 5 && Math.abs(b.y - sh.y) < 10) { b.dead = true; G.shot = null; parts.burst(sh.x, sh.y, '#e2e8f0', 6, { speed: 2 }); break; }
+    }
   }
-})();
+
+  // formation march: fewer aliens → shorter step interval
+  const alive = G.aliens.filter(a => a.alive);
+  if (!alive.length) { sfx.win(); addScore(100 * G.wave); return newWave(); }
+  const interval = Math.max(2, 3 + alive.length * .62 - G.wave * 1.2);
+  G.stepT += dt;
+  if (G.stepT >= interval) {
+    G.stepT = 0; G.frame ^= 1;
+    sfx.tone(NOTES[G.note], { type: 'square', dur: .09, vol: .045 }); G.note = (G.note + 1) % 4;
+    if (G.drop) { alive.forEach(a => a.y += 16); G.dir *= -1; G.drop = false; }
+    else {
+      alive.forEach(a => a.x += 8 * G.dir);
+      const minX = Math.min(...alive.map(a => a.x)), maxX = Math.max(...alive.map(a => a.x));
+      if (maxX > W - 30 || minX < 30) G.drop = true;
+    }
+    // aliens trample bunkers
+    for (const a of alive) if (a.y > 450) bunkerHit(a.x, a.y + 10, 3, true);
+    if (Math.max(...alive.map(a => a.y)) > PLAYER_Y - 20) { G.lives = 0; return killShip(); }
+  }
+  // bombs: bottom-most aliens in each column drop them
+  const rate = .012 + G.wave * .004 + (55 - alive.length) * .0006;
+  if (G.bombs.length < 3 + Math.floor(G.wave / 2) && Math.random() < rate * dt) {
+    const cols = {};
+    for (const a of alive) { const k = Math.round(a.x / 38); if (!cols[k] || a.y > cols[k].y) cols[k] = a; }
+    const shooters = Object.values(cols);
+    // favour aliens above the player
+    const near = shooters.filter(a => Math.abs(a.x - s.x) < 80);
+    const src = near.length && Math.random() < .5 ? pick(near) : pick(shooters);
+    G.bombs.push({ x: src.x, y: src.y + 12, kind: Math.random() < .5 ? 'zig' : 'plunger', t: 0 });
+  }
+  for (const b of G.bombs) {
+    b.y += (b.kind === 'zig' ? 3.4 : 4.2 + G.wave * .15) * dt; b.t += dt;
+    if (bunkerHit(b.x, b.y + 6, 2, true)) b.dead = true;
+    else if (b.y > GROUND) { b.dead = true; parts.burst(b.x, GROUND, '#64748b', 4, { speed: 1.5 }); }
+    else if (!s.inv && Math.abs(b.x - s.x) < 20 && b.y > PLAYER_Y - 8 && b.y < PLAYER_Y + 16) { b.dead = true; killShip(); }
+  }
+  G.bombs = G.bombs.filter(b => !b.dead);
+  // UFO
+  G.ufoT -= dt;
+  if (!G.ufo && G.ufoT <= 0 && alive.length > 6) { const d = Math.random() < .5 ? 1 : -1; G.ufo = { x: d > 0 ? -30 : W + 30, d }; G.ufoT = rand(1200, 2000); }
+  if (G.ufo) {
+    G.ufo.x += G.ufo.d * 1.7 * dt;
+    if (Math.floor(G.ufo.x / 12) % 2 === 0) sfx.tone(Math.floor(G.ufo.x / 6) % 2 ? 660 : 560, { type: 'sine', dur: .03, vol: .012 });
+    if (G.ufo.x < -40 || G.ufo.x > W + 40) G.ufo = null;
+  }
+  if (G.pops) { G.pops.life -= dt; if (G.pops.life <= 0) G.pops = null; }
+  parts.update(dt);
+}
+function killShip() {
+  const s = G.ship;
+  if (s.dead > 0) return;
+  G.lives = Math.max(0, G.lives - 1); s.dead = 110; G.shot = null;
+  shake.hit(10); sfx.boom();
+  parts.burst(s.x, PLAYER_Y, '#f97316', 36, { speed: 5 });
+  hud();
+}
+function addScore(n) {
+  G.score += n;
+  if (!G.extra && G.score >= 1500) { G.extra = true; G.lives++; sfx.arp([523, 784, 1047], { gap: .08 }); Kit.toast('Extra life'); }
+  hud();
+}
+function gameOver() {
+  G.state = 'over';
+  const rec = store.best('best', G.score);
+  hud();
+  Kit.overlay(ov, {
+    title: 'Invaded', grad: rec && G.score > 0, text: `You held out until wave ${G.wave}.`,
+    stats: [[G.score, 'Score'], [store.data.best, 'Best']], note: rec && G.score ? 'New best score' : '',
+    actions: [{ label: 'Defend again', primary: true, onClick: () => { Kit.overlay(ov, null); newGame(); } }],
+  });
+}
+function hud() {
+  $('#score').textContent = G.score; $('#wave').textContent = G.wave; $('#lives').textContent = G.lives;
+  $('#best').textContent = Math.max(store.data.best, G.score);
+}
+
+/* ── Draw ── */
+const stars = Array.from({ length: 50 }, () => ({ x: rand(0, W), y: rand(0, H), s: rand(.2, 1) }));
+function draw() {
+  ctx.fillStyle = '#07070c'; ctx.fillRect(0, 0, W, H);
+  const sh = shake.apply(ctx);
+  for (const st of stars) { ctx.fillStyle = `rgba(226,232,240,${st.s * .5})`; ctx.fillRect(st.x, st.y, st.s * 2, st.s * 2); }
+  if (!G) return;
+  // bunkers
+  ctx.fillStyle = '#f97316';
+  for (const b of G.bunkers) b.cells.forEach((row, y) => row.forEach((v, x) => { if (v) ctx.fillRect(b.x + x * BP, b.y + y * BP, BP, BP); }));
+  // aliens
+  for (const a of G.aliens) if (a.alive) { const img = spr[a.type][G.frame]; ctx.drawImage(img, Math.round(a.x - img.width / 2), Math.round(a.y - img.height / 2)); }
+  if (G.ufo) { const img = spr.ufo[0]; ctx.drawImage(img, G.ufo.x - img.width / 2, 56 - img.height / 2); }
+  if (G.pops) { ctx.fillStyle = '#f43f5e'; ctx.font = '22px "Bebas Neue", sans-serif'; ctx.textAlign = 'center'; ctx.fillText(G.pops.text, G.pops.x, 62); }
+  // shots & bombs
+  if (G.shot) { ctx.fillStyle = '#fef3c7'; ctx.fillRect(G.shot.x - 1.5, G.shot.y - 8, 3, 12); }
+  ctx.fillStyle = '#e2e8f0';
+  for (const b of G.bombs) {
+    if (b.kind === 'zig') { const o = Math.floor(b.t / 4) % 2 ? 2 : -2; ctx.fillRect(b.x - 1 + o, b.y, 3, 4); ctx.fillRect(b.x - 1 - o, b.y + 4, 3, 4); ctx.fillRect(b.x - 1 + o, b.y + 8, 3, 4); }
+    else { ctx.fillRect(b.x - 1, b.y, 3, 12); ctx.fillRect(b.x - 4, b.y + (Math.floor(b.t / 5) % 3) * 4, 9, 2); }
+  }
+  // ship
+  const s = G.ship;
+  if (s.dead <= 0 && !(s.inv > 0 && Math.floor(s.inv / 5) % 2)) { const img = spr.ship[0]; ctx.drawImage(img, Math.round(s.x - img.width / 2), PLAYER_Y - img.height / 2); }
+  // ground + spare lives
+  ctx.fillStyle = '#f97316'; ctx.fillRect(0, GROUND, W, 2);
+  for (let i = 0; i < Math.min(G.lives - (s.dead > 0 ? 0 : 1), 6); i++) ctx.drawImage(spr.ship[0], 14 + i * 46, GROUND + 12, 36, 20);
+  parts.draw(ctx);
+  if (sh) ctx.restore();
+  if (G.banner > 0 && G.state === 'play') {
+    ctx.globalAlpha = Math.min(1, G.banner / 30);
+    ctx.fillStyle = '#e2e8f0'; ctx.font = '40px "Bebas Neue", sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(`Wave ${G.wave}`, W / 2, 330);
+    ctx.globalAlpha = 1;
+  }
+}
+
+Kit.overlay(ov, {
+  title: 'Space Invaders', grad: true,
+  text: 'Purple 30, blue 20, green 10, and the red mystery ship is worth up to 300. Bunkers soak up fire until they crumble.',
+  actions: [{ label: 'Start', primary: true, onClick: () => { Kit.overlay(ov, null); newGame(); } }],
+});
+Kit.loop(dt => { if (G && G.state === 'play') update(dt); else parts.update(dt); draw(); });

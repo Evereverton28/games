@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
   <title>Snake</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../shared/kit.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <!-- ARCADE-NAV (injected) -->
@@ -27,28 +29,33 @@
 </style>
 <!-- /ARCADE-NAV -->
 
-  <div id="ui">
-    <div><div class="hud-label">Score</div><div class="hud-val" id="scoreEl">0</div></div>
-    <div id="titleEl">SNAKE</div>
-    <div style="text-align:right"><div class="hud-label">Best</div><div class="hud-val" id="highEl">0</div></div>
-  </div>
-  <div id="wrap">
-    <canvas id="gc"></canvas>
-    <div id="overlay">
-      <div id="msg">SNAKE</div>
-      <div id="sub">Arrow keys · WASD · or D-pad below</div>
-      <button id="startBtn">Start Game ▶</button>
+<main class="page" style="--page-w:540px">
+  <header class="head">
+    <div class="head-title">
+      <h1 class="title">Snake</h1>
+      <p class="tagline">Eat, grow, and don't bite yourself.</p>
     </div>
+    <div class="head-tools"><button class="icon-btn" id="sound"></button></div>
+  </header>
+  <div class="seg" id="mode"><button data-v="walls">Walls</button><button data-v="wrap">Wrap-around</button></div>
+  <div class="stats">
+    <div class="stat"><span class="v" id="score">0</span><span class="l">Score</span></div>
+    <div class="stat"><span class="v" id="len">3</span><span class="l">Length</span></div>
+    <div class="stat"><span class="v" id="best">0</span><span class="l">Best</span></div>
   </div>
-  <div id="pauseHint"></div>
-  <div id="dpad">
-    <div class="dpad-row"><button class="dpad-btn" id="btn-up" aria-label="Up">▲</button></div>
-    <div class="dpad-row">
-      <button class="dpad-btn" id="btn-left" aria-label="Left">◀</button>
-      <button class="dpad-btn" id="btn-down" aria-label="Down">▼</button>
-      <button class="dpad-btn" id="btn-right" aria-label="Right">▶</button>
-    </div>
+  <div class="arena">
+    <canvas id="cv" aria-label="Snake. Arrow keys or swipe to turn."></canvas>
+    <div class="overlay" id="ov" hidden></div>
   </div>
-  <script src="script.js"></script>
+  <div class="pad">
+    <button data-d="left" aria-label="Left"><svg class="ico" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <button data-d="up" aria-label="Up"><svg class="ico" viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></svg></button>
+    <button data-d="down" aria-label="Down"><svg class="ico" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+    <button data-d="right" aria-label="Right"><svg class="ico" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+  </div>
+  <p class="keys"><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>WASD</kbd> · <kbd>P</kbd> pause</p>
+</main>
+<script src="../shared/kit.js"></script>
+<script src="script.js"></script>
 </body>
 </html>

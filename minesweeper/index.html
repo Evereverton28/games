@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
   <title>Minesweeper</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../shared/kit.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <!-- ARCADE-NAV (injected) -->
@@ -26,27 +29,33 @@
 </style>
 <!-- /ARCADE-NAV -->
 
-  <div id="wrap">
-    <div id="hud">
-      <div><span id="mineEl">💣 0</span></div>
-      <div id="title">MINESWEEPER</div>
-      <div><span id="timeEl">⏱ 0</span></div>
+<main class="page" style="--page-w:800px">
+  <header class="head">
+    <div class="head-title">
+      <h1 class="title">Minesweeper</h1>
+      <p class="tagline">Clear the field without touching a mine. Numbers count adjacent mines.</p>
     </div>
-    <div id="diffBar">
-      <button class="diff active" data-d="easy">Easy</button>
-      <button class="diff" data-d="medium">Medium</button>
-      <button class="diff" data-d="hard">Hard</button>
+    <div class="head-tools"><button class="icon-btn" id="sound"></button></div>
+  </header>
+  <div class="seg" id="diff"><button data-v="beginner">Beginner</button><button data-v="intermediate">Intermediate</button><button data-v="expert">Expert</button></div>
+  <div class="bar">
+    <div class="stats">
+      <div class="stat hot"><span class="v" id="mines">10</span><span class="l">Mines left</span></div>
+      <div class="stat"><span class="v" id="time">0</span><span class="l">Seconds</span></div>
+      <div class="stat"><span class="v" id="best">–</span><span class="l">Best</span></div>
     </div>
-    <div id="boardWrap">
-      <div id="board"></div>
-      <div id="overlay">
-        <div id="msg">MINESWEEPER</div>
-        <div id="sub">Left-click to reveal · Right-click to flag</div>
-        <button id="startBtn">New Game ▶</button>
-      </div>
-    </div>
-    <div id="hint">Left-click reveal · Right-click flag</div>
+    <button class="btn btn-sm mode" id="flagMode" aria-pressed="false" title="Flag mode (F)">
+      <svg class="ico" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg><span>Flag mode</span>
+    </button>
+    <button class="btn btn-sm" id="new">New</button>
   </div>
-  <script src="script.js"></script>
+  <div class="arena">
+    <div class="field-wrap"><div class="field" id="field" role="grid" aria-label="Minefield"></div></div>
+    <div class="overlay" id="ov" hidden></div>
+  </div>
+  <p class="keys">Click to reveal · right-click or long-press to flag · click a number to clear around it · arrows + <kbd>Space</kbd> / <kbd>F</kbd></p>
+</main>
+<script src="../shared/kit.js"></script>
+<script src="script.js"></script>
 </body>
 </html>

@@ -1,216 +1,131 @@
-/* ════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    WHACK-A-MOLE
-   - 3x3 grid of holes; moles pop up for a limited time.
-   - Purple mole = +points, gold mole = bonus, bomb = penalty.
-   - Difficulty ramps: moles appear faster & stay up less as
-     the clock runs down.
-   ════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════ */
+const { $, rand, sfx } = Kit;
+const store = Kit.store('whack', { best: 0 });
+const fieldEl = $('#field'), ov = $('#ov');
+Kit.soundToggle($('#sound'));
+const ROUND = 30;
 
-/* ─── Safe storage shim ─── */
-(function () {
-  try { const t="__ls__"; localStorage.setItem(t,"1"); localStorage.removeItem(t); }
-  catch (e) {
-    let m={}; const safe={getItem:k=>k in m?m[k]:null,setItem:(k,v)=>m[k]=String(v),
-      removeItem:k=>delete m[k],clear:()=>m={},key:i=>Object.keys(m)[i]||null,get length(){return Object.keys(m).length;}};
-    try { Object.defineProperty(window,"localStorage",{value:safe,configurable:true}); } catch(e2){ window.localStorage=safe; }
-  }
-})();
-
-const HOLES = 9;
-const GAME_SECONDS = 30;
-
-const $ = id => document.getElementById(id);
-const grid       = $('grid');
-const scoreEl    = $('score-display');
-const timeEl     = $('time-display');
-const streakEl   = $('streak-display');
-const bestEl     = $('best-display');
-const overlay    = $('overlay');
-const overlayTitle = $('overlay-title');
-const overlaySub = $('overlay-sub');
-const startBtn   = $('start-btn');
-const boardWrap  = document.querySelector('.board-wrap');
-
-let holes = [];       // { el, moleEl, occupied, kind, timer, hideTimer }
-let running = false;
-let score = 0, streak = 0, timeLeft = GAME_SECONDS;
-let best = parseInt(localStorage.getItem('wam_best') || '0');
-let spawnTimer = null, clockTimer = null, elapsed = 0;
-
-/* ── Audio ── */
-let audioCtx = null;
-function tone(freq, type='sine', dur=0.08, vol=0.06, freqEnd) {
-  try {
-    if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
-    o.connect(g); g.connect(audioCtx.destination); o.type=type;
-    o.frequency.setValueAtTime(freq, audioCtx.currentTime);
-    if (freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd, audioCtx.currentTime+dur);
-    g.gain.setValueAtTime(vol, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+dur);
-    o.start(); o.stop(audioCtx.currentTime+dur);
-  } catch(_){}
+const holes = [];
+for (let i = 0; i < 9; i++) {
+  const h = document.createElement('button');
+  h.className = 'hole'; h.setAttribute('aria-label', `Hole ${i + 1}`);
+  h.innerHTML = '<div class="mole"><div class="body"></div><div class="fuse"></div><span class="eye l"></span><span class="eye r"></span><span class="nose"></span><span class="teeth"></span></div>';
+  h.addEventListener('pointerdown', e => { e.preventDefault(); whack(i); });
+  fieldEl.appendChild(h);
+  holes.push({ el: h, mole: h.querySelector('.mole'), kind: null, until: 0, hit: false });
 }
-const Sfx = {
-  whack: () => tone(520,'square',0.07,0.07,300),
-  gold:  () => { tone(660,'triangle',0.1,0.08,880); setTimeout(()=>tone(990,'triangle',0.12,0.06),80); },
-  bomb:  () => { tone(120,'sawtooth',0.25,0.12,60); },
-  pop:   () => tone(300,'sine',0.05,0.03,420),
-  over:  () => [440,330,220].forEach((f,i)=>setTimeout(()=>tone(f,'triangle',0.3,0.08),i*120)),
-};
 
-/* ── Build board ── */
-function buildBoard() {
-  grid.innerHTML = '';
-  holes = [];
-  for (let i = 0; i < HOLES; i++) {
-    const hole = document.createElement('div');
-    hole.className = 'hole';
-    const mole = document.createElement('div');
-    mole.className = 'mole';
-    hole.appendChild(mole);
-    grid.appendChild(hole);
-    const rec = { el: hole, moleEl: mole, occupied: false, kind: null, hideTimer: null };
-    hole.addEventListener('click', () => whack(rec));
-    holes.push(rec);
+let G = null;
+function start() {
+  G = { running: true, score: 0, left: ROUND, combo: 0, bestCombo: 0, hits: 0, swings: 0, gold: 0, bombs: 0, nextSpawn: 600, last: performance.now() };
+  holes.forEach(h => hide(h, true));
+  Kit.overlay(ov, null);
+  hud();
+  requestAnimationFrame(tick);
+}
+function mult() { return G.combo >= 15 ? 4 : G.combo >= 10 ? 3 : G.combo >= 5 ? 2 : 1; }
+function tick(now) {
+  if (!G || !G.running) return;
+  const dt = Math.min(100, now - G.last); G.last = now;
+  if (!document.hidden) G.left -= dt / 1000;
+  if (G.left <= 0) return end();
+  const progress = 1 - G.left / ROUND; // 0 → 1
+  G.nextSpawn -= dt;
+  if (G.nextSpawn <= 0) {
+    spawn(progress);
+    G.nextSpawn = rand(620, 900) * (1 - progress * .55);
+  }
+  for (const h of holes) if (h.kind && !h.hit && now > h.until) {
+    if (h.kind !== 'bomb') { G.combo = 0; hud(); } // a mole escaped
+    hide(h);
+  }
+  const bar = $('#bar');
+  bar.style.width = `${G.left / ROUND * 100}%`;
+  bar.classList.toggle('low', G.left < 5);
+  $('#time').textContent = Math.ceil(G.left);
+  requestAnimationFrame(tick);
+}
+function spawn(progress) {
+  const free = holes.filter(h => !h.kind);
+  if (!free.length) return;
+  const count = progress > .5 && Math.random() < .35 ? 2 : 1;
+  for (let k = 0; k < count && free.length; k++) {
+    const h = free.splice(Math.floor(Math.random() * free.length), 1)[0];
+    const r = Math.random();
+    h.kind = r < .1 ? 'gold' : r < .1 + .08 + progress * .1 ? 'bomb' : 'mole';
+    const stay = (h.kind === 'gold' ? 620 : h.kind === 'bomb' ? 1300 : 1050) * (1 - progress * .45);
+    h.until = performance.now() + stay;
+    h.hit = false;
+    h.mole.className = 'mole' + (h.kind === 'mole' ? '' : ' ' + h.kind);
+    h.el.classList.remove('hit');
+    h.el.classList.add('up');
+    h.el.setAttribute('aria-label', `Hole ${holes.indexOf(h) + 1}: ${h.kind === 'bomb' ? 'bomb' : h.kind === 'gold' ? 'gold mole' : 'mole'}`);
+    if (h.kind === 'gold') sfx.tone(1320, { type: 'sine', dur: .1, vol: .03 });
+    else sfx.tone(rand(300, 380), { type: 'sine', dur: .05, vol: .02 });
   }
 }
-
-/* ── Spawn logic ── */
-function difficulty() {
-  // 0 at start → 1 at end
-  return Math.min(1, elapsed / GAME_SECONDS);
+function hide(h, instant) {
+  h.el.classList.remove('up', 'hit');
+  h.kind = null;
+  h.el.setAttribute('aria-label', `Hole ${holes.indexOf(h) + 1}: empty`);
 }
-function nextSpawnDelay() {
-  const d = difficulty();
-  // 700ms → 320ms between spawns
-  return 700 - d*380 + Math.random()*180;
-}
-function moleUpDuration() {
-  const d = difficulty();
-  // 1100ms → 620ms up-time
-  return 1100 - d*480;
-}
-
-function pickKind() {
-  const d = difficulty();
-  const r = Math.random();
-  const bombChance = 0.14 + d*0.16;   // more bombs later
-  const goldChance = 0.08;
-  if (r < bombChance) return 'bomb';
-  if (r < bombChance + goldChance) return 'gold';
-  return 'good';
-}
-
-function popMole() {
-  if (!running) return;
-  // choose a free hole
-  const free = holes.filter(h => !h.occupied);
-  if (free.length) {
-    const rec = free[Math.floor(Math.random()*free.length)];
-    const kind = pickKind();
-    rec.occupied = true; rec.kind = kind;
-    rec.moleEl.className = 'mole up mole-' + kind;
-    rec.moleEl.textContent = kind==='bomb' ? '💣' : kind==='gold' ? '⭐' : '🐹';
-    Sfx.pop();
-    rec.hideTimer = setTimeout(() => hideMole(rec, true), moleUpDuration());
-  }
-  spawnTimer = setTimeout(popMole, nextSpawnDelay());
-}
-
-function hideMole(rec, missed) {
-  if (!rec.occupied) return;
-  clearTimeout(rec.hideTimer);
-  rec.moleEl.classList.remove('up');
-  const wasGood = rec.kind === 'good' || rec.kind === 'gold';
-  rec.occupied = false; rec.kind = null;
-  // missing a good mole breaks the streak (bombs are fine to miss)
-  if (missed && wasGood) { streak = 0; streakEl.textContent = streak; }
-}
-
-/* ── Whack ── */
-function whack(rec) {
-  if (!running || !rec.occupied) return;
-  const kind = rec.kind;
-  rec.moleEl.classList.add('whacked');
-  const rect = rec.el.getBoundingClientRect();
-
-  if (kind === 'bomb') {
-    score = Math.max(0, score - 5);
-    streak = 0;
-    Sfx.bomb();
-    popup(rec, '-5', 'var(--danger)');
-    boardWrap.classList.remove('shake'); void boardWrap.offsetWidth; boardWrap.classList.add('shake');
+function whack(i) {
+  if (!G || !G.running) return;
+  const h = holes[i];
+  G.swings++;
+  fieldEl.classList.add('whack'); setTimeout(() => fieldEl.classList.remove('whack'), 110);
+  if (!h.kind || h.hit) { G.combo = 0; sfx.tone(140, { dur: .06, vol: .04 }); hud(); return; }
+  h.hit = true;
+  h.el.classList.add('hit');
+  let pts, col;
+  if (h.kind === 'bomb') {
+    pts = -5; col = 'var(--bad)'; G.combo = 0; G.bombs++;
+    sfx.boom(); Kit.pulse(fieldEl, 'boom');
+    if (navigator.vibrate) navigator.vibrate(120);
   } else {
-    streak++;
-    const base = kind === 'gold' ? 5 : 1;
-    const bonus = Math.floor(streak / 5); // small streak bonus
-    const gained = base + bonus;
-    score += gained;
-    if (kind === 'gold') Sfx.gold(); else Sfx.whack();
-    popup(rec, '+' + gained, kind==='gold' ? '#fde047' : '#a78bfa');
-    streakEl.textContent = streak;
-    bump(streakEl);
+    G.combo++; G.hits++; G.bestCombo = Math.max(G.bestCombo, G.combo);
+    const base = h.kind === 'gold' ? 3 : 1;
+    if (h.kind === 'gold') G.gold++;
+    pts = base * mult(); col = h.kind === 'gold' ? 'var(--gold)' : 'var(--text)';
+    sfx.tone(h.kind === 'gold' ? 880 : 520 + Math.min(G.combo, 15) * 25, { type: 'square', dur: .07, vol: .04, slide: 200 });
+    if (h.kind === 'gold') sfx.coin();
+    if (G.combo === 5 || G.combo === 10 || G.combo === 15) { Kit.pulse($('#combo').parentElement); sfx.arp([660, 880, 1100], { gap: .05, dur: .12, vol: .04 }); }
   }
-  scoreEl.textContent = score;
-  bump(scoreEl);
-  hideMole(rec, false);
-  setTimeout(() => rec.moleEl.classList.remove('whacked'), 180);
+  G.score = Math.max(0, G.score + pts);
+  const p = document.createElement('span'); p.className = 'pts'; p.style.color = col; p.textContent = (pts > 0 ? '+' : '') + pts;
+  h.el.appendChild(p); setTimeout(() => p.remove(), 700);
+  setTimeout(() => { if (h.hit) hide(h); }, 260);
+  hud();
 }
-
-function popup(rec, text, color) {
-  const p = document.createElement('div');
-  p.className = 'popup';
-  p.textContent = text;
-  p.style.color = color;
-  p.style.left = '50%';
-  p.style.top = '30%';
-  p.style.transform = 'translateX(-50%)';
-  rec.el.appendChild(p);
-  setTimeout(() => p.remove(), 700);
+function hud() {
+  $('#score').textContent = G ? G.score : 0;
+  $('#combo').textContent = '×' + (G ? mult() : 1);
+  $('#best').textContent = Math.max(store.data.best, G ? G.score : 0);
 }
-
-function bump(el){ el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
-
-/* ── Clock ── */
-function tick() {
-  timeLeft--; elapsed++;
-  timeEl.textContent = timeLeft;
-  timeEl.classList.toggle('low', timeLeft <= 5);
-  if (timeLeft <= 0) endGame();
+function end() {
+  G.running = false; G.left = 0;
+  $('#time').textContent = 0; $('#bar').style.width = '0%';
+  holes.forEach(h => hide(h));
+  const acc = G.swings ? Math.round(G.hits / G.swings * 100) : 0;
+  const rec = store.best('best', G.score);
+  hud();
+  rec && G.score ? (sfx.win(), Kit.confetti()) : sfx.arp([523, 392], { gap: .15 });
+  Kit.overlay(ov, {
+    title: "Time's up", grad: rec && G.score > 0,
+    text: `${G.hits} moles bopped, ${G.gold} gold, ${G.bombs} bomb${G.bombs === 1 ? '' : 's'} hit.`,
+    stats: [[G.score, 'Score'], [acc + '%', 'Accuracy'], [G.bestCombo, 'Best combo']],
+    note: rec && G.score ? 'New best score' : '',
+    actions: [{ label: 'Play again', primary: true, onClick: start }],
+  });
 }
+const KEYS = { '7': 0, '8': 1, '9': 2, '4': 3, '5': 4, '6': 5, '1': 6, '2': 7, '3': 8 };
+addEventListener('keydown', e => { if (e.key in KEYS && !e.repeat) whack(KEYS[e.key]); if (e.key === 'Enter' && (!G || !G.running) && !ov.hidden) start(); });
 
-/* ── Flow ── */
-function startGame() {
-  score = 0; streak = 0; timeLeft = GAME_SECONDS; elapsed = 0;
-  running = true;
-  scoreEl.textContent = 0; streakEl.textContent = 0;
-  timeEl.textContent = timeLeft; timeEl.classList.remove('low');
-  bestEl.textContent = best;
-  overlay.classList.add('hidden');
-  // reset any lingering moles
-  holes.forEach(h => { clearTimeout(h.hideTimer); h.occupied=false; h.kind=null; h.moleEl.className='mole'; });
-  clearTimeout(spawnTimer); clearInterval(clockTimer);
-  spawnTimer = setTimeout(popMole, 500);
-  clockTimer = setInterval(tick, 1000);
-}
-
-function endGame() {
-  running = false;
-  clearTimeout(spawnTimer); clearInterval(clockTimer);
-  holes.forEach(h => { clearTimeout(h.hideTimer); h.moleEl.classList.remove('up'); h.occupied=false; });
-  Sfx.over();
-  if (score > best) { best = score; localStorage.setItem('wam_best', String(best)); }
-  bestEl.textContent = best;
-  overlayTitle.textContent = 'TIME!';
-  overlaySub.innerHTML = `You scored <strong style="color:var(--x-color)">${score}</strong>` +
-    (score >= best && score > 0 ? ' — new best! 🏆' : `<br>Best: ${best}`);
-  startBtn.textContent = 'PLAY AGAIN';
-  overlay.classList.remove('hidden');
-}
-
-startBtn.addEventListener('click', () => { try{ if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); }catch(_){} startGame(); });
-
-/* ── Boot ── */
-buildBoard();
-bestEl.textContent = best;
+hud();
+Kit.overlay(ov, {
+  title: 'Whack-a-Mole', grad: true,
+  html: '<p>Brown moles are 1 point, gold moles 3. Bombs cost 5 and reset your combo. Hit 5, 10 and 15 in a row for ×2, ×3 and ×4.</p>',
+  actions: [{ label: 'Start', primary: true, onClick: start }],
+});

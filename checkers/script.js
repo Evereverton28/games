@@ -1,535 +1,258 @@
-/* ═══════════════════════════════════════════════════════════════
-   CHECKERS — script.js
-   Rules: standard 8×8 English draughts
-   • Mandatory jumps (single + multi-jump)
-   • King promotion
-   • vs Human or AI (minimax + alpha-beta)
-   • Move history, captured pieces, undo
-═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   CHECKERS — American rules, alpha-beta AI
+   Board: 64 squares. P1 (orange) moves up the board, P2 (cyan) down.
+   Values: 1 / 2 = P1 man / king, -1 / -2 = P2 man / king.
+═══════════════════════════════════════════════════════════ */
+const { $, sfx } = Kit;
+const store = Kit.store('checkers', { mode: 'medium', wins: 0, losses: 0 });
+const boardEl = $('#board'), ov = $('#ov');
+Kit.soundToggle($('#sound'));
 
-/* ── Constants ─────────────────────────────────────────────── */
-const EMPTY  = 0;
-const R      = 1;   // red man
-const RK     = 2;   // red king
-const B      = 3;   // black man
-const BK     = 4;   // black king
+const rc = i => [i >> 3, i & 7];
+const idx = (r, c) => r * 8 + c;
+const on = (r, c) => r >= 0 && r < 8 && c >= 0 && c < 8;
+const side = v => Math.sign(v);
 
-function isRed(p)   { return p===R||p===RK; }
-function isBlack(p) { return p===B||p===BK; }
-function isKing(p)  { return p===RK||p===BK; }
-function colorOf(p) { return isRed(p)?'red':(isBlack(p)?'black':null); }
-function enemy(c)   { return c==='red'?'black':'red'; }
-
-/* ── Game state ─────────────────────────────────────────────── */
-let G = {};
-let gameMode    = 'human';
-let playerColor = 'red';
-let aiDepth     = 4;
-let aiThinking  = false;
-
-function freshBoard() {
-  const b = Array(64).fill(EMPTY);
-  for (let r=0;r<3;r++) for (let c=0;c<8;c++) if ((r+c)%2!==0) b[r*8+c]=B;
-  for (let r=5;r<8;r++) for (let c=0;c<8;c++) if ((r+c)%2!==0) b[r*8+c]=R;
+function initial() {
+  const b = Array(64).fill(0);
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    if ((r + c) % 2 === 0) continue;
+    if (r < 3) b[idx(r, c)] = -1;
+    if (r > 4) b[idx(r, c)] = 1;
+  }
   return b;
 }
 
-function freshState() {
-  return {
-    board: freshBoard(),
-    turn: 'red',
-    selected: null,
-    legalDests: [],       // squares the selected piece can move to
-    mandatoryFrom: null,  // if mid-multi-jump, locked to this square
-    history: [],
-    redCaps: 0,
-    blackCaps: 0,
-    moveCount: 0,
-    gameOver: false,
-  };
-}
-
-/* ══════════════════════════════════════════════════════════════
-   MOVE GENERATION
-══════════════════════════════════════════════════════════════ */
-function idx(r,c) { return r*8+c; }
-function row(i)   { return Math.floor(i/8); }
-function col(i)   { return i%8; }
-
-// Returns all jumps from `from` in the board, recursively (multi-jump chains)
-// Each returned jump: { path: [sq, ...], captured: [sq, ...] }
-function getJumps(board, from, c, visited=new Set()) {
-  const p = board[from];
-  const dirs = [];
-  if (c==='red'  || isKing(p)) dirs.push([-1,-1],[-1,1]);
-  if (c==='black'|| isKing(p)) dirs.push([ 1,-1],[ 1,1]);
-
-  const results = [];
-  const r=row(from), f=col(from);
-  for (const [dr,dc] of dirs) {
-    const mr=r+dr, mc=f+dc;   // mid (enemy)
-    const lr=r+2*dr, lc=f+2*dc; // landing
-    if (lr<0||lr>=8||lc<0||lc>=8) continue;
-    const mid=idx(mr,mc), land=idx(lr,lc);
-    if (!isEnemy(board[mid],c)) continue;
-    if (board[land]!==EMPTY && land!==from) continue;
-    if (visited.has(mid)) continue;
-
-    // Apply tentative move
-    const nb = [...board];
-    const orig = nb[from];
-    nb[land] = orig;
-    nb[from] = EMPTY;
-    nb[mid]  = EMPTY;
-    // Promote if king is earned mid-jump? Standard rules: only at end of turn
-    const v2 = new Set([...visited, mid]);
-    const further = getJumps(nb, land, c, v2);
-    if (further.length===0) {
-      results.push({ path:[from,land], captured:[mid] });
-    } else {
-      for (const f2 of further) {
-        results.push({ path:[from,...f2.path], captured:[mid,...f2.captured] });
-      }
-    }
+/* ── Move generation: moves are { from, path: [squares], caps: [squares] } ── */
+function dirsFor(v) { return Math.abs(v) === 2 ? [[-1, -1], [-1, 1], [1, -1], [1, 1]] : v > 0 ? [[-1, -1], [-1, 1]] : [[1, -1], [1, 1]]; }
+function jumpsFrom(b, from, v, path, caps, out) {
+  const [r, c] = rc(path.length ? path[path.length - 1] : from);
+  let extended = false;
+  for (const [dr, dc] of dirsFor(v)) {
+    const mr = r + dr, mc = c + dc, tr = r + 2 * dr, tc = c + 2 * dc;
+    if (!on(tr, tc)) continue;
+    const mid = idx(mr, mc), to = idx(tr, tc);
+    if (side(b[mid]) !== -side(v) || caps.includes(mid)) continue;
+    if (b[to] !== 0 && to !== from) continue;
+    extended = true;
+    const promotes = Math.abs(v) === 1 && ((v > 0 && tr === 0) || (v < 0 && tr === 7));
+    if (promotes) out.push({ from, path: [...path, to], caps: [...caps, mid] }); // crowning ends the move
+    else jumpsFrom(b, from, v, [...path, to], [...caps, mid], out);
   }
-  return results;
+  if (!extended && path.length) out.push({ from, path, caps });
 }
-
-function isEnemy(piece, c) {
-  return c==='red' ? isBlack(piece) : isRed(piece);
-}
-
-// Simple (non-jump) moves
-function getSimpleMoves(board, from, c) {
-  const p=board[from];
-  const dirs=[];
-  if (c==='red'  ||isKing(p)) dirs.push([-1,-1],[-1,1]);
-  if (c==='black'||isKing(p)) dirs.push([ 1,-1],[ 1,1]);
-  const r=row(from),f=col(from);
-  const moves=[];
-  for (const [dr,dc] of dirs) {
-    const nr=r+dr,nc=f+dc;
-    if(nr<0||nr>=8||nc<0||nc>=8) continue;
-    const ti=idx(nr,nc);
-    if(board[ti]===EMPTY) moves.push({path:[from,ti],captured:[]});
+function legalMoves(b, player) {
+  const caps = [], quiet = [];
+  for (let i = 0; i < 64; i++) {
+    const v = b[i];
+    if (side(v) !== player) continue;
+    jumpsFrom(b, i, v, [], [], caps);
+    if (caps.length) continue;
+    const [r, c] = rc(i);
+    for (const [dr, dc] of dirsFor(v)) if (on(r + dr, c + dc) && b[idx(r + dr, c + dc)] === 0) quiet.push({ from: i, path: [idx(r + dr, c + dc)], caps: [] });
   }
-  return moves;
+  return caps.length ? caps : quiet;
+}
+function apply(b, m) {
+  const n = b.slice();
+  let v = n[m.from];
+  n[m.from] = 0;
+  for (const c of m.caps) n[c] = 0;
+  const to = m.path[m.path.length - 1];
+  const r = to >> 3;
+  if (v === 1 && r === 0) v = 2;
+  if (v === -1 && r === 7) v = -2;
+  n[to] = v;
+  return n;
 }
 
-// All legal moves for a color (mandatory jumps enforced)
-function allMoves(board, c) {
-  const jumps=[], simples=[];
-  for(let i=0;i<64;i++) {
-    if(colorOf(board[i])!==c) continue;
-    jumps.push(...getJumps(board,i,c));
-    simples.push(...getSimpleMoves(board,i,c));
+/* ── AI ── */
+function evaluate(b) { // from P2 (computer) perspective
+  let s = 0;
+  for (let i = 0; i < 64; i++) {
+    const v = b[i]; if (!v) continue;
+    const [r, c] = rc(i);
+    let val = Math.abs(v) === 2 ? 175 : 100;
+    if (Math.abs(v) === 1) val += (v > 0 ? 7 - r : r) * 3;          // advancement
+    if (c >= 2 && c <= 5 && r >= 2 && r <= 5) val += 6;            // centre
+    if (Math.abs(v) === 1 && ((v > 0 && r === 7) || (v < 0 && r === 0))) val += 8; // back row guard
+    s += v < 0 ? val : -val;
   }
-  return jumps.length>0 ? jumps : simples;
+  return s;
 }
-
-// Moves for a specific piece (respecting mandatory jump rule)
-function movesFrom(board, from, c, allMovesCache) {
-  const cache = allMovesCache || allMoves(board,c);
-  return cache.filter(m=>m.path[0]===from);
-}
-
-/* ── Apply a move ───────────────────────────────────────────── */
-function applyMove(board, move) {
-  const nb=[...board];
-  const from=move.path[0], to=move.path[move.path.length-1];
-  const piece=nb[from];
-  for(const c of move.captured) nb[c]=EMPTY;
-  nb[to]=piece; nb[from]=EMPTY;
-  // Promotion
-  if(piece===R && row(to)===0) nb[to]=RK;
-  if(piece===B && row(to)===7) nb[to]=BK;
-  return nb;
-}
-
-function promotionHappened(board, move) {
-  const to=move.path[move.path.length-1];
-  const piece=board[move.path[0]];
-  return (piece===R&&row(to)===0)||(piece===B&&row(to)===7);
-}
-
-/* ── Move notation ──────────────────────────────────────────── */
-function sqName(i) { return 'abcdefgh'[col(i)]+(8-row(i)); }
-function moveSAN(move) {
-  const sep = move.captured.length>0 ? 'x' : '-';
-  if(move.path.length===2) return sqName(move.path[0])+sep+sqName(move.path[1]);
-  return move.path.map(sqName).join(sep);
-}
-
-/* ══════════════════════════════════════════════════════════════
-   AI (Minimax + Alpha-Beta)
-══════════════════════════════════════════════════════════════ */
-const PST_MAN = [
-   0, 4, 0, 4, 0, 4, 0, 4,
-   4, 0, 3, 0, 3, 0, 3, 0,
-   0, 3, 0, 2, 0, 2, 0, 3,
-   4, 0, 2, 0, 1, 0, 2, 0,
-   0, 2, 0, 1, 0, 2, 0, 4,
-   3, 0, 2, 0, 2, 0, 3, 0,
-   0, 3, 0, 3, 0, 3, 0, 4,
-   4, 0, 4, 0, 4, 0, 4, 0,
-];
-
-function evaluate(board) {
-  let score=0;
-  for(let i=0;i<64;i++) {
-    const p=board[i];
-    if(p===EMPTY) continue;
-    const pstR = PST_MAN[i];
-    const pstB = PST_MAN[63-i];
-    if(p===R)  score += 100 + pstR;
-    if(p===RK) score += 280;
-    if(p===B)  score -= (100 + pstB);
-    if(p===BK) score -= 280;
-  }
-  return score;
-}
-
-function minimax(board, depth, alpha, beta, maximizing, color) {
-  const moves = allMoves(board, color);
-  if(depth===0||moves.length===0) {
-    if(moves.length===0) return maximizing ? -99999 : 99999;
-    return evaluate(board);
-  }
-  // Order: jumps first
-  moves.sort((a,b2)=>b2.captured.length-a.captured.length);
-
-  if(maximizing) {
-    let best=-Infinity;
-    for(const m of moves) {
-      const nb=applyMove(board,m);
-      const v=minimax(nb,depth-1,alpha,beta,false,enemy(color));
-      best=Math.max(best,v); alpha=Math.max(alpha,v);
-      if(beta<=alpha) break;
-    }
-    return best;
-  } else {
-    let best=Infinity;
-    for(const m of moves) {
-      const nb=applyMove(board,m);
-      const v=minimax(nb,depth-1,alpha,beta,true,enemy(color));
-      best=Math.min(best,v); beta=Math.min(beta,v);
-      if(beta<=alpha) break;
-    }
+function search(b, depth, alpha, beta, player) {
+  const moves = legalMoves(b, player);
+  if (!moves.length) return player === -1 ? -10000 - depth : 10000 + depth;
+  if (depth <= 0 && !moves[0].caps.length) return evaluate(b);
+  if (depth <= -4) return evaluate(b); // quiescence limit
+  if (player === -1) {
+    let best = -Infinity;
+    for (const m of moves) { best = Math.max(best, search(apply(b, m), depth - 1, alpha, beta, 1)); alpha = Math.max(alpha, best); if (alpha >= beta) break; }
     return best;
   }
-}
-
-function getBestMove(board, c, depth) {
-  const moves=allMoves(board,c);
-  if(!moves.length) return null;
-  moves.sort((a,b2)=>b2.captured.length-a.captured.length);
-  const max=c==='red';
-  let best=null, bestVal=max?-Infinity:Infinity;
-  for(const m of moves) {
-    const nb=applyMove(board,m);
-    const v=minimax(nb,depth-1,-Infinity,Infinity,!max,enemy(c));
-    if(max?v>bestVal:v<bestVal){bestVal=v;best=m;}
-  }
+  let best = Infinity;
+  for (const m of moves) { best = Math.min(best, search(apply(b, m), depth - 1, alpha, beta, -1)); beta = Math.min(beta, best); if (alpha >= beta) break; }
   return best;
 }
-
-/* ══════════════════════════════════════════════════════════════
-   UI
-══════════════════════════════════════════════════════════════ */
-const $board    = document.getElementById('board');
-const $history  = document.getElementById('move-history');
-const $scoreR   = document.getElementById('score-red');
-const $scoreB   = document.getElementById('score-black');
-const $trayR    = document.getElementById('tray-red');
-const $trayB    = document.getElementById('tray-black');
-const $turn     = document.getElementById('turn-indicator');
-const $status   = document.getElementById('status-bar');
-const $cardR    = document.getElementById('score-card-red');
-const $cardB    = document.getElementById('score-card-black');
-
-function renderBoard() {
-  $board.innerHTML='';
-  const {board, selected, legalDests, history, mandatoryFrom} = G;
-  const lastMove = history[history.length-1];
-
-  for(let i=0;i<64;i++) {
-    const r=row(i), c=col(i);
-    const sq=document.createElement('div');
-    sq.className='sq '+((r+c)%2===0?'light':'dark');
-    sq.dataset.idx=i;
-
-    if(i===selected)       sq.classList.add('selected');
-    if(legalDests.includes(i)) sq.classList.add('legal-move');
-    if(lastMove) {
-      const lp=lastMove.path;
-      if(i===lp[0])              sq.classList.add('last-from');
-      if(i===lp[lp.length-1])    sq.classList.add('last-to');
-    }
-
-    const p=board[i];
-    if(p!==EMPTY) {
-      const piece=document.createElement('div');
-      piece.className='piece '+(isRed(p)?'red':'black-p')+(isKing(p)?' king':'');
-      if(i===selected) piece.classList.add('selected-piece');
-      piece.addEventListener('click',()=>onSquareClick(i));
-      sq.appendChild(piece);
-    }
-
-    // Clickable dark squares
-    if((r+c)%2!==0) sq.addEventListener('click',()=>onSquareClick(i));
-    $board.appendChild(sq);
+function aiMove(b, level) {
+  const moves = legalMoves(b, -1);
+  if (level === 'easy' && Math.random() < .45) return Kit.pick(moves);
+  const depth = { easy: 2, medium: 4, hard: 7 }[level];
+  let best = -Infinity, choices = [];
+  for (const m of Kit.shuffle(moves.slice())) {
+    const s = search(apply(b, m), depth - 1, -Infinity, Infinity, 1);
+    if (s > best) { best = s; choices = [m]; } else if (s === best) choices.push(m);
   }
+  return choices[0];
 }
 
-function renderScores() {
-  // Count remaining pieces
-  let rc=0,bc=0;
-  for(const p of G.board) { if(isRed(p)) rc++; if(isBlack(p)) bc++; }
-  $scoreR.textContent = rc;
-  $scoreB.textContent = bc;
-
-  // Captured trays
-  $trayR.innerHTML=''; $trayB.innerHTML='';
-  for(let i=0;i<G.blackCaps;i++) {
-    const pip=document.createElement('div');
-    pip.className='cap-pip black'; $trayR.appendChild(pip);
-  }
-  for(let i=0;i<G.redCaps;i++) {
-    const pip=document.createElement('div');
-    pip.className='cap-pip red'; $trayB.appendChild(pip);
-  }
-
-  // Active card glow
-  $cardR.classList.remove('active-x','active-o');
-  $cardB.classList.remove('active-x','active-o');
-  if(!G.gameOver) {
-    if(G.turn==='red')   $cardR.classList.add('active-x');
-    else                 $cardB.classList.add('active-o');
-  }
+/* ── Game state & rendering ── */
+let board, turn, mode, selected, history, quietPlies, busy, lastMove, over;
+const squares = [], pieceEls = new Map();
+for (let i = 0; i < 64; i++) {
+  const [r, c] = rc(i);
+  const d = document.createElement('div');
+  d.className = 'sq' + ((r + c) % 2 ? ' dark' : '');
+  if ((r + c) % 2) { d.tabIndex = -1; d.setAttribute('role', 'gridcell'); d.addEventListener('click', () => clickSquare(i)); }
+  boardEl.appendChild(d); squares.push(d);
 }
+const setMode = Kit.segmented($('#mode'), v => { mode = v; store.set('mode', v); newGame(); });
 
-function renderHistory() {
-  $history.innerHTML='';
-  G.history.forEach((m,i)=>{
-    const div=document.createElement('div');
-    div.className='move-entry';
-    const mn=document.createElement('span'); mn.className='mn';
-    mn.textContent=(Math.floor(i/2)+1)+(i%2===0?'.W':'.B')+' ';
-    const mt=document.createElement('span'); mt.className='mt';
-    mt.textContent=moveSAN(m);
-    div.appendChild(mn); div.appendChild(mt);
-    $history.appendChild(div);
+function newGame() {
+  board = initial(); turn = 1; selected = null; history = []; quietPlies = 0; busy = false; lastMove = null; over = false;
+  pieceEls.forEach(el => el.remove()); pieceEls.clear();
+  // assign stable ids to pieces so they can animate
+  ids = Array(64).fill(null); let n = 0;
+  for (let i = 0; i < 64; i++) if (board[i]) ids[i] = ++n;
+  Kit.overlay(ov, null);
+  render();
+}
+let ids = [];
+function place(el, i) { const [r, c] = rc(i); el.style.transform = `translate(${c * 100}%, ${r * 100}%)`; }
+function render() {
+  const moves = !over && (mode === 'pvp' || turn === 1) ? legalMoves(board, turn) : [];
+  const mustCapture = moves.length && moves[0].caps.length;
+  const selMoves = selected == null ? [] : moves.filter(m => m.from === selected);
+  const alive = new Set();
+  for (let i = 0; i < 64; i++) {
+    const v = board[i];
+    if (!v) continue;
+    const id = ids[i]; alive.add(id);
+    let el = pieceEls.get(id);
+    if (!el) { el = document.createElement('div'); el.innerHTML = '<div class="disk"></div>'; boardEl.appendChild(el); pieceEls.set(id, el); }
+    const wasKing = el.classList.contains('king');
+    el.className = `piece ${v > 0 ? 'p1' : 'p2'}${Math.abs(v) === 2 ? ' king' : ''}${i === selected ? ' sel' : ''}${mustCapture && moves.some(m => m.from === i) && selected == null ? ' must' : ''}`;
+    if (!wasKing && Math.abs(v) === 2 && el.dataset.placed) { el.classList.add('crowned'); sfx.arp([784, 988, 1175], { gap: .06, dur: .2, vol: .05 }); }
+    el.dataset.placed = 1;
+    place(el, i);
+  }
+  pieceEls.forEach((el, id) => { if (!alive.has(id)) { el.classList.add('dying'); setTimeout(() => el.remove(), 260); pieceEls.delete(id); } });
+  squares.forEach((sq, i) => {
+    sq.classList.remove('target', 'cap', 'last');
+    if (lastMove && (lastMove.from === i || lastMove.path.includes(i))) sq.classList.add('last');
   });
-  $history.scrollTop=$history.scrollHeight;
+  for (const m of selMoves) { const t = m.path[0]; squares[t].classList.add('target'); if (m.caps.length) squares[t].classList.add('cap'); }
+  // side panel
+  const count = s => board.filter(v => side(v) === s).length;
+  $('#p1cap').textContent = `${count(1)} pieces`;
+  $('#p2cap').textContent = `${count(-1)} pieces`;
+  $('#p1name').textContent = mode === 'pvp' ? 'Orange' : 'You';
+  $('#p2name').textContent = mode === 'pvp' ? 'Cyan' : 'Computer';
+  $('#p1').classList.toggle('active', turn === 1 && !over);
+  $('#p2').classList.toggle('active', turn === -1 && !over);
+  $('#turn').textContent = over ? 'Game over' : mode === 'pvp' ? (turn === 1 ? 'Orange to move' : 'Cyan to move') : turn === 1 ? (mustCapture ? 'You must capture' : 'Your move') : 'Thinking…';
+  $('#undo').disabled = !history.length || busy;
 }
 
-function setTurn() {
-  if(G.gameOver){$turn.textContent='Game Over';return;}
-  $turn.textContent=(G.turn==='red'?'Red':'Black')+"'s Turn";
+function clickSquare(i) {
+  if (busy || over || (mode !== 'pvp' && turn !== 1)) return;
+  const moves = legalMoves(board, turn);
+  if (side(board[i]) === turn) {
+    if (moves.some(m => m.from === i)) { selected = i; sfx.select(); }
+    else { sfx.error(); Kit.toast(moves[0] && moves[0].caps.length ? 'A capture is available, so you must take it.' : 'That piece has no moves.'); }
+    render(); return;
+  }
+  if (selected == null) return;
+  // Choose the move whose first hop lands here; for multi-jump branches, prefer the longest
+  const options = moves.filter(m => m.from === selected && m.path[0] === i).sort((a, b) => b.caps.length - a.caps.length);
+  if (!options.length) { selected = null; render(); return; }
+  play(options[0]);
 }
 
-function setStatus(msg){$status.textContent=msg;}
-
-function showThinking(){
-  $status.innerHTML='Computer thinking <span class="thinking-dot"></span><span class="thinking-dot"></span><span class="thinking-dot"></span>';
-}
-
-/* ── Interaction ────────────────────────────────────────────── */
-function onSquareClick(i) {
-  if(G.gameOver||aiThinking) return;
-  if(gameMode==='ai' && G.turn!==playerColor) return;
-
-  const {board, turn, selected, legalDests, mandatoryFrom} = G;
-  const p = board[i];
-
-  // If clicking a legal destination → execute move
-  if(legalDests.includes(i) && selected!==null) {
-    // Find the matching move (first path step = selected, last = i)
-    const allM = allMoves(board, turn);
-    const candidates = allM.filter(m=>m.path[0]===selected && m.path[m.path.length-1]===i);
-    if(candidates.length) executeMove(candidates[0]);
-    return;
+async function play(m) {
+  busy = true;
+  history.push({ board: board.slice(), ids: ids.slice(), turn, quietPlies, lastMove });
+  selected = null;
+  const id = ids[m.from];
+  const el = pieceEls.get(id);
+  // animate hop by hop
+  let cur = m.from;
+  for (let k = 0; k < m.path.length; k++) {
+    const to = m.path[k];
+    if (el) { el.style.zIndex = 5; place(el, to); }
+    if (m.caps[k] != null) {
+      const capEl = pieceEls.get(ids[m.caps[k]]);
+      setTimeout(() => { if (capEl) capEl.classList.add('dying'); }, 120);
+      sfx.tone(300 - k * 20, { type: 'triangle', dur: .1, vol: .06, slide: 180 });
+    } else sfx.tone(360, { type: 'triangle', dur: .05, vol: .04 });
+    await wait(m.path.length > 1 ? 190 : 170);
+    cur = to;
   }
-
-  // If mandatory-from is active, only allow selecting that piece
-  if(mandatoryFrom!==null) {
-    if(i===mandatoryFrom) { showLegal(i); }
-    return;
-  }
-
-  // Select own piece
-  if(p!==EMPTY && colorOf(p)===turn) {
-    const allM=allMoves(board,turn);
-    const fromMoves=movesFrom(board,i,turn,allM);
-    if(fromMoves.length===0) { setStatus('No legal moves for this piece.'); return; }
-    G.selected=i;
-    G.legalDests=fromMoves.map(m=>m.path[m.path.length-1]);
-    renderBoard(); setStatus('');
-  } else {
-    G.selected=null; G.legalDests=[];
-    renderBoard();
-  }
-}
-
-function showLegal(from) {
-  const allM=allMoves(G.board, G.turn);
-  const fromMoves=movesFrom(G.board,from,G.turn,allM);
-  G.selected=from;
-  G.legalDests=fromMoves.map(m=>m.path[m.path.length-1]);
-  renderBoard();
-}
-
-function executeMove(move) {
-  const {board, turn} = G;
-  const promoted = promotionHappened(board, move);
-  const nb = applyMove(board, move);
-
-  // Snapshot for undo
-  G.history.push({
-    ...move,
-    san: moveSAN(move),
-    boardSnap: [...board],
-    redCapsSnap: G.redCaps,
-    blackCapsSnap: G.blackCaps,
-    turnSnap: turn,
-  });
-
-  // Update captures
-  if(turn==='red')   G.blackCaps += move.captured.length;
-  else               G.redCaps   += move.captured.length;
-
-  G.board = nb;
-  G.selected = null;
-  G.legalDests = [];
-  G.mandatoryFrom = null;
-  G.moveCount++;
-
-  // Switch turn
-  G.turn = enemy(turn);
-
-  renderBoard(); renderScores(); renderHistory(); setTurn();
-
-  // Check game over
-  const nextMoves=allMoves(G.board, G.turn);
-  if(nextMoves.length===0) {
-    G.gameOver=true;
-    const winner=turn==='red'?'Red':'Black';
-    setStatus('No moves — '+winner+' wins!');
-    renderScores();
-    setTimeout(()=>showModal('⬤','Game Over!',winner+' wins — '+enemy(turn)+ ' has no moves left.'),500);
-    return;
-  }
-  // Check if any pieces remain
-  let rc=0,bc=0;
-  for(const p of G.board){if(isRed(p))rc++;if(isBlack(p))bc++;}
-  if(rc===0||bc===0){
-    G.gameOver=true;
-    const winner=rc>0?'Red':'Black';
-    setStatus(winner+' wins by capturing all pieces!');
-    renderScores();
-    setTimeout(()=>showModal('⬤',winner+' Wins!',winner+' captured all opponent pieces.'),500);
-    return;
-  }
-
-  setStatus('');
-
-  // AI turn
-  if(gameMode==='ai' && G.turn!==playerColor && !G.gameOver) {
-    aiThinking=true; showThinking();
-    setTimeout(doAIMove, 120);
+  if (el) el.style.zIndex = '';
+  const moverWasMan = Math.abs(board[m.from]) === 1;
+  board = apply(board, m);
+  const to = m.path[m.path.length - 1];
+  ids[to] = id; ids[m.from] = null; m.caps.forEach(c => { ids[c] = null; });
+  quietPlies = m.caps.length || moverWasMan ? 0 : quietPlies + 1;
+  lastMove = m;
+  turn = -turn;
+  busy = false;
+  render();
+  checkEnd();
+  if (!over && mode !== 'pvp' && turn === -1) {
+    busy = true; render();
+    await wait(260);
+    const reply = aiMove(board, mode);
+    busy = false;
+    play(reply);
   }
 }
+const wait = ms => new Promise(r => setTimeout(r, ms));
 
-function doAIMove() {
-  const best=getBestMove(G.board, G.turn, aiDepth);
-  aiThinking=false;
-  if(best) executeMove(best);
-  else setStatus('');
-}
-
-function undoMove() {
-  if(G.gameOver) G.gameOver=false;
-  const count=(gameMode==='ai')?2:1;
-  let c=count;
-  while(c-->0 && G.history.length>0) {
-    const h=G.history.pop();
-    G.board=[...h.boardSnap];
-    G.redCaps=h.redCapsSnap;
-    G.blackCaps=h.blackCapsSnap;
-    G.turn=h.turnSnap;
+function checkEnd() {
+  const moves = legalMoves(board, turn);
+  let title, text, win = false;
+  if (!moves.length) {
+    const loser = turn;
+    over = true;
+    if (mode === 'pvp') { title = `${loser === 1 ? 'Cyan' : 'Orange'} wins`; text = `${loser === 1 ? 'Orange' : 'Cyan'} has no moves left.`; win = true; }
+    else if (loser === -1) { title = 'You win'; text = 'The computer has no moves left.'; win = true; store.set('wins', store.data.wins + 1); }
+    else { title = 'Computer wins'; text = 'You have no moves left.'; store.set('losses', store.data.losses + 1); }
+  } else if (quietPlies >= 80) {
+    over = true; title = 'Draw'; text = '40 moves each without a capture or a man moving.';
   }
-  G.selected=null; G.legalDests=[]; G.mandatoryFrom=null; G.gameOver=false;
-  renderBoard(); renderScores(); renderHistory(); setTurn(); setStatus('');
+  if (!over) return;
+  render();
+  win ? (sfx.win(), Kit.confetti(['#f97316', '#38bdf8', '#fbbf24'])) : sfx.lose();
+  setTimeout(() => Kit.overlay(ov, {
+    title, grad: win, text,
+    stats: mode === 'pvp' ? null : [[store.data.wins, 'Wins'], [store.data.losses, 'Losses']],
+    actions: [{ label: 'Review board', onClick: () => Kit.overlay(ov, null) }, { label: 'Play again', primary: true, onClick: newGame }],
+  }), 500);
 }
 
-/* ── Modal ────────────────────────────────────────────────────── */
-function showModal(icon,title,body){
-  document.getElementById('modal-icon').textContent=icon;
-  document.getElementById('modal-title').textContent=title;
-  document.getElementById('modal-body').textContent=body;
-  document.getElementById('modal').classList.remove('hidden');
-}
+$('#undo').onclick = () => {
+  if (busy || !history.length) return;
+  // In vs-computer games, step back to the player's previous turn
+  let h = history.pop();
+  if (mode !== 'pvp' && h.turn === -1 && history.length) h = history.pop();
+  board = h.board; ids = h.ids; turn = h.turn; quietPlies = h.quietPlies; lastMove = h.lastMove; selected = null; over = false;
+  pieceEls.forEach(el => el.remove()); pieceEls.clear();
+  Kit.overlay(ov, null);
+  render(); sfx.tone(520, { dur: .1, vol: .04, slide: 320 });
+};
+$('#new').onclick = newGame;
+addEventListener('keydown', e => { if (e.key === 'Escape') { selected = null; render(); } });
 
-/* ══════════════════════════════════════════════════════════════
-   SPLASH / INIT
-══════════════════════════════════════════════════════════════ */
-let splashMode=null;
-
-document.querySelectorAll('.mode-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('selected'));
-    btn.classList.add('selected');
-    splashMode=btn.dataset.mode;
-    const ai=document.getElementById('ai-options');
-    splashMode==='ai'?ai.classList.remove('hidden'):ai.classList.add('hidden');
-  });
-});
-
-document.querySelectorAll('.color-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    document.querySelectorAll('.color-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    playerColor=btn.dataset.color;
-  });
-});
-
-document.querySelectorAll('.diff-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    document.querySelectorAll('.diff-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    aiDepth=parseInt(btn.dataset.depth);
-  });
-});
-
-document.getElementById('start-btn').addEventListener('click',()=>{
-  if(!splashMode) splashMode='human';
-  gameMode=splashMode;
-  startGame();
-});
-
-function startGame(){
-  G=freshState();
-  aiThinking=false;
-  document.getElementById('splash').classList.add('hidden');
-  document.getElementById('modal').classList.add('hidden');
-  document.getElementById('app').classList.remove('hidden');
-  renderBoard(); renderScores(); renderHistory(); setTurn(); setStatus('');
-  // AI goes first if human plays black
-  if(gameMode==='ai' && playerColor==='black'){
-    aiThinking=true; showThinking();
-    setTimeout(doAIMove,400);
-  }
-}
-
-function resetToSplash(){
-  document.getElementById('app').classList.add('hidden');
-  document.getElementById('modal').classList.add('hidden');
-  document.getElementById('splash').classList.remove('hidden');
-  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('selected'));
-  document.getElementById('ai-options').classList.add('hidden');
-  splashMode=null;
-}
-
-document.getElementById('undo-btn').addEventListener('click', undoMove);
-document.getElementById('new-game-btn').addEventListener('click', resetToSplash);
-document.getElementById('modal-new-btn').addEventListener('click', resetToSplash);
+mode = store.data.mode; setMode(mode);
+newGame();

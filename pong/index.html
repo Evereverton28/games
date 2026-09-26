@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
   <title>Pong</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../shared/kit.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <!-- ARCADE-NAV (injected) -->
@@ -28,37 +29,22 @@
 </style>
 <!-- /ARCADE-NAV -->
 
-  <div class="container">
-    <h1>PONG</h1>
-
-    <canvas id="pongCanvas" width="800" height="420"></canvas>
-
-    <div class="controls-row">
-      <button id="startButton">&#9654; Start</button>
-      <button id="pauseButton" style="display:none;">&#9646;&#9646; Pause</button>
-      <label class="toggle-label">
-        <input type="checkbox" id="soundToggle" checked> Sound
-      </label>
-      <label class="toggle-label">
-        First to
-        <select id="winScore">
-          <option>5</option>
-          <option selected>7</option>
-          <option>10</option>
-          <option>15</option>
-        </select>
-        wins
-      </label>
+<main class="page" style="--page-w:800px">
+  <header class="head">
+    <div class="head-title">
+      <h1 class="title">Pong</h1>
+      <p class="tagline">First to seven. Hit with the paddle edge for sharper angles.</p>
     </div>
-
-    <p class="hint">
-      Left: <kbd>W</kbd> / <kbd>S</kbd> &nbsp;|&nbsp; Right: <kbd>↑</kbd> / <kbd>↓</kbd>
-    </p>
-
-    <div id="winBanner" class="win-banner" style="display:none;"></div>
-    <div id="matchHistory" class="match-history"></div>
+    <div class="head-tools"><button class="icon-btn" id="sound"></button></div>
+  </header>
+  <div class="seg" id="mode"><button data-v="easy">Easy</button><button data-v="medium">Medium</button><button data-v="hard">Hard</button><button data-v="pvp">2 players</button></div>
+  <div class="arena">
+    <canvas id="cv" aria-label="Pong court"></canvas>
+    <div class="overlay" id="ov" hidden></div>
   </div>
-
-  <script src="script.js"></script>
+  <p class="keys" id="keys"></p>
+</main>
+<script src="../shared/kit.js"></script>
+<script src="script.js"></script>
 </body>
 </html>

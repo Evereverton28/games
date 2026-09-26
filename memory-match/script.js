@@ -1,217 +1,99 @@
-// ---------- Audio ----------
-let audioCtx = null;
+/* ═══════════════════════════════════════════════════════════
+   MEMORY MATCH
+═══════════════════════════════════════════════════════════ */
+const { $, sfx } = Kit;
+const store = Kit.store('memory', { diff: 'easy', best: {} });
+const deckEl = $('#deck'), ov = $('#ov');
+Kit.soundToggle($('#sound'));
 
-function getAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  return audioCtx;
-}
+const DIFFS = { easy: { pairs: 6, cols: 4 }, medium: { pairs: 10, cols: 5 }, hard: { pairs: 15, cols: 6 } };
+const SYMBOLS = ['🍓', '🍋', '🍇', '🥝', '🍑', '🍍', '🥥', '🍒', '🌵', '🍄', '🌙', '⭐', '🔥', '💎', '🎈', '🎲', '🚀', '🐙', '🦊', '🐢', '🦋', '🐝'];
 
-function playSound(freq, type = 'square', duration = 0.1, volume = 0.08) {
-  try {
-    const ctx  = getAudio();
-    const osc  = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, ctx.currentTime);
-    gain.gain.setValueAtTime(volume, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + duration);
-  } catch (e) {}
-}
+let diff, cards, open, moves, matched, streak, bestStreak, timer, startAt, elapsed, lock, over;
+const setDiff = Kit.segmented($('#diff'), v => { diff = v; store.set('diff', v); newGame(); });
 
-const Sounds = {
-  flip:    () => playSound(300, 'square',   0.06, 0.06),
-  match:   () => playSound(550, 'triangle', 0.20, 0.10),
-  mismatch:() => playSound(120, 'sawtooth', 0.18, 0.07),
-  win:     () => playSound(440, 'triangle', 0.50, 0.12),
-};
-
-// ---------- Card data ----------
-const EMOJI_POOL = ['⚽','🏆','🎮','👻','🚀','🍕','🎵','💎','🔥','🌙','⭐','🍀','🎲','🦊','🐸','🍩'];
-
-const DIFFICULTIES = {
-  easy:   { pairs: 6,  cols: 3 },
-  medium: { pairs: 8,  cols: 4 },
-  hard:   { pairs: 12, cols: 4 },
-};
-
-let currentDiff = 'easy';
-
-const boardEl = document.getElementById('board');
-const movesEl = document.getElementById('moves');
-const pairsEl = document.getElementById('pairs');
-const timeEl  = document.getElementById('time');
-const restartBtn = document.getElementById('restart');
-const winOverlay = document.getElementById('winOverlay');
-const winStats = document.getElementById('winStats');
-const playAgainBtn = document.getElementById('playAgain');
-const diffButtons = document.querySelectorAll('.diff-btn');
-
-let cards = [];
-let flippedCards = [];
-let matchedCount = 0;
-let totalPairs = 6;
-let moves = 0;
-let lockBoard = false;
-let timerInterval = null;
-let seconds = 0;
-
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-function formatTime(s) {
-  const m = Math.floor(s / 60).toString().padStart(2, '0');
-  const sec = (s % 60).toString().padStart(2, '0');
-  return `${m}:${sec}`;
-}
-
-function startTimer() {
-  stopTimer();
-  seconds = 0;
-  timeEl.textContent = formatTime(seconds);
-  timerInterval = setInterval(() => {
-    seconds++;
-    timeEl.textContent = formatTime(seconds);
-  }, 1000);
-}
-
-function stopTimer() {
-  if (timerInterval) clearInterval(timerInterval);
-  timerInterval = null;
-}
-
-function createBoard() {
-  const { pairs, cols } = DIFFICULTIES[currentDiff];
-  totalPairs = pairs;
-
-  boardEl.innerHTML = '';
-  boardEl.className = `board cols-${cols}`;
-  cards = [];
-  flippedCards = [];
-  matchedCount = 0;
-  moves = 0;
-  lockBoard = false;
-  movesEl.textContent = '0';
-  pairsEl.textContent = `0 / ${totalPairs}`;
-  winOverlay.classList.add('hidden');
-
-  const symbols = shuffle([...EMOJI_POOL]).slice(0, pairs);
-  const deck = shuffle([...symbols, ...symbols]);
-
-  deck.forEach((symbol, i) => {
-    const card = document.createElement('div');
-    card.className = 'card placed';
-    card.dataset.symbol = symbol;
-    card.style.animationDelay = `${i * 0.03}s`;
-
-    const inner = document.createElement('div');
-    inner.className = 'card-inner';
-
-    const front = document.createElement('div');
-    front.className = 'card-face card-front';
-
-    const back = document.createElement('div');
-    back.className = 'card-face card-back';
-    back.textContent = symbol;
-
-    inner.appendChild(front);
-    inner.appendChild(back);
-    card.appendChild(inner);
-
-    card.addEventListener('click', () => handleCardClick(card));
-
-    boardEl.appendChild(card);
-    cards.push(card);
+function newGame() {
+  const D = DIFFS[diff];
+  const syms = Kit.shuffle(SYMBOLS.slice()).slice(0, D.pairs);
+  cards = Kit.shuffle([...syms, ...syms].map((s, i) => ({ s, i, done: false })));
+  open = []; moves = 0; matched = 0; streak = 0; bestStreak = 0; elapsed = 0; startAt = 0; lock = false; over = false;
+  clearInterval(timer);
+  deckEl.style.setProperty('--cols', window.innerWidth < 480 && D.cols > 4 ? D.cols - 1 : D.cols);
+  deckEl.innerHTML = '';
+  cards.forEach((c, k) => {
+    const b = document.createElement('button');
+    b.className = 'card deal';
+    b.style.animationDelay = `${k * 22}ms`;
+    b.addEventListener('animationend', e => { if (e.animationName === 'deal') { b.classList.remove('deal'); b.style.animationDelay = ''; } });
+    b.setAttribute('aria-label', 'Hidden card');
+    b.innerHTML = `<span class="face back"></span><span class="face front">${c.s}</span>`;
+    b.addEventListener('click', () => flip(k));
+    deckEl.appendChild(b); c.el = b;
   });
-
-  startTimer();
+  Kit.overlay(ov, null);
+  hud(); bestLine();
 }
-
-function handleCardClick(card) {
-  if (lockBoard) return;
-  if (card.classList.contains('flipped') || card.classList.contains('matched')) return;
-
-  Sounds.flip();
-  card.classList.add('flipped');
-  flippedCards.push(card);
-
-  if (flippedCards.length === 2) {
-    moves++;
-    movesEl.textContent = moves;
-    lockBoard = true;
-
-    const [first, second] = flippedCards;
-
-    if (first.dataset.symbol === second.dataset.symbol) {
-      handleMatch(first, second);
-    } else {
-      handleMismatch(first, second);
-    }
+function flip(k) {
+  const c = cards[k];
+  if (lock || over || c.done || open.includes(c)) return;
+  if (!startAt) { startAt = performance.now(); timer = setInterval(tick, 250); }
+  c.el.classList.add('up'); c.el.setAttribute('aria-label', c.s);
+  sfx.tone(480 + open.length * 120, { type: 'triangle', dur: .06, vol: .04 });
+  open.push(c);
+  if (open.length < 2) return;
+  moves++;
+  const [a, b] = open;
+  if (a.s === b.s) {
+    a.done = b.done = true; matched++; streak++; bestStreak = Math.max(bestStreak, streak);
+    open = [];
+    setTimeout(() => {
+      a.el.classList.add('done'); b.el.classList.add('done');
+      sfx.tone(660 + streak * 60, { type: 'triangle', dur: .1, vol: .05 }); sfx.tone(990 + streak * 60, { type: 'triangle', dur: .16, vol: .04, delay: .07 });
+      if (streak >= 2) Kit.pulse($('#streak').parentElement);
+      Kit.say(`Match: ${a.s}`);
+    }, 250);
+    if (matched === cards.length / 2) setTimeout(win, 700);
+  } else {
+    streak = 0; lock = true;
+    setTimeout(() => { a.el.classList.add('miss'); b.el.classList.add('miss'); sfx.error(); }, 350);
+    setTimeout(() => {
+      for (const c of [a, b]) { c.el.classList.remove('up', 'miss'); c.el.setAttribute('aria-label', 'Hidden card'); }
+      open = []; lock = false;
+    }, 1000);
   }
+  hud();
 }
-
-function handleMatch(first, second) {
-  Sounds.match();
-  matchedCount++;
-  pairsEl.textContent = `${matchedCount} / ${totalPairs}`;
-
-  // alternate accent colours between pairs for variety
-  const accent = matchedCount % 2 === 0 ? 'x' : '';
-
-  [first, second].forEach(c => {
-    c.classList.add('matched');
-    if (accent) c.classList.add(accent);
-    c.classList.add('winner-cell');
+function tick() { elapsed = (performance.now() - startAt) / 1000; $('#time').textContent = Kit.fmtTime(elapsed); }
+function hud() {
+  $('#moves').textContent = moves;
+  $('#pairs').textContent = `${matched}/${cards.length / 2}`;
+  $('#streak').textContent = streak;
+  if (!startAt) $('#time').textContent = '0:00';
+}
+function bestLine() {
+  const b = store.data.best[diff];
+  $('#bestLine').textContent = b ? `Best on ${diff}: ${b.moves} moves · fastest ${Kit.fmtTime(b.time)}` : `No record on ${diff} yet.`;
+}
+function win() {
+  over = true; clearInterval(timer); tick();
+  const pairs = cards.length / 2;
+  const stars = moves <= pairs * 1.5 ? 3 : moves <= pairs * 2.2 ? 2 : 1;
+  const prev = store.data.best[diff] || {};
+  const newMoves = !prev.moves || moves < prev.moves, newTime = !prev.time || elapsed < prev.time;
+  store.data.best[diff] = { moves: Math.min(moves, prev.moves || Infinity), time: Math.min(elapsed, prev.time || Infinity) };
+  store.save();
+  sfx.win(); Kit.confetti();
+  bestLine();
+  Kit.overlay(ov, {
+    title: 'All matched', grad: true,
+    html: `<div class="stars" aria-label="${stars} of 3 stars">${'★'.repeat(stars)}<span class="off">${'★'.repeat(3 - stars)}</span></div>`,
+    stats: [[moves, 'Moves'], [Kit.fmtTime(elapsed), 'Time'], [bestStreak, 'Best streak']],
+    note: newMoves && newTime ? 'New best moves and time' : newMoves ? 'New best: fewest moves' : newTime ? 'New best: fastest time' : '',
+    actions: [{ label: 'Play again', primary: true, onClick: newGame }],
   });
-
-  setTimeout(() => {
-    [first, second].forEach(c => c.classList.remove('winner-cell'));
-  }, 600);
-
-  flippedCards = [];
-  lockBoard = false;
-
-  if (matchedCount === totalPairs) {
-    stopTimer();
-    Sounds.win();
-    setTimeout(showWin, 500);
-  }
 }
+$('#new').onclick = newGame;
+addEventListener('resize', () => { if (cards) deckEl.style.setProperty('--cols', window.innerWidth < 480 && DIFFS[diff].cols > 4 ? DIFFS[diff].cols - 1 : DIFFS[diff].cols); });
 
-function handleMismatch(first, second) {
-  Sounds.mismatch();
-  setTimeout(() => {
-    first.classList.remove('flipped');
-    second.classList.remove('flipped');
-    flippedCards = [];
-    lockBoard = false;
-  }, 800);
-}
-
-function showWin() {
-  winStats.textContent = `Solved in ${moves} moves — ${formatTime(seconds)}`;
-  winOverlay.classList.remove('hidden');
-}
-
-restartBtn.addEventListener('click', createBoard);
-playAgainBtn.addEventListener('click', createBoard);
-
-diffButtons.forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (btn.dataset.diff === currentDiff) return;
-    diffButtons.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentDiff = btn.dataset.diff;
-    createBoard();
-  });
-});
-
-createBoard();
+diff = store.data.diff; setDiff(diff);
+newGame();
