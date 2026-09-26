@@ -1,0 +1,59 @@
+.board {
+  --n: 6; display: grid; grid-template-columns: repeat(var(--n), 1fr); grid-template-rows: repeat(var(--n), 1fr);
+  aspect-ratio: 1; width: 100%; overflow: hidden;
+  border: 3px solid #05050a; border-radius: var(--radius); background: #05050a;
+  user-select: none; -webkit-user-select: none; touch-action: none;
+  box-shadow: 0 0 40px rgba(167,139,250,.07);
+}
+.cell {
+  position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; cursor: pointer;
+  background: var(--rc); border: 0 solid #05050a;
+  box-shadow: inset 0 0 0 .5px rgba(5,5,10,.35);
+  transition: filter .15s;
+}
+.cell.bt { border-top-width: 2px; } .cell.bb { border-bottom-width: 2px; }
+.cell.bl { border-left-width: 2px; } .cell.br { border-right-width: 2px; }
+.cell:hover { filter: brightness(1.12); }
+.cell:focus-visible { outline: 3px solid #fff; outline-offset: -4px; z-index: 2; }
+.cell .x { width: 34%; height: 34%; opacity: .7; }
+.cell .x path { stroke: #0a0a0f; stroke-width: 3.2; stroke-linecap: round; }
+.cell.auto .x { opacity: .2; width: 26%; height: 26%; }
+.cell .o {
+  width: 58%; aspect-ratio: 1; border-radius: 50%;
+  border: max(3px, calc(9px - var(--n) * .6px)) solid #0a0a0f;
+  background: rgba(255,255,255,.28);
+  box-shadow: 0 2px 0 rgba(0,0,0,.25);
+  animation: popIn .18s cubic-bezier(.175,.885,.32,1.275);
+}
+.cell.bad { background-image: repeating-linear-gradient(45deg, rgba(244,63,94,.55) 0 5px, transparent 5px 11px); }
+.cell.bad .o { border-color: #b91c1c; background: rgba(254,202,202,.7); }
+.cell.flag { animation: flag 1s ease-in-out 3; z-index: 1; }
+@keyframes flag { 50% { box-shadow: inset 0 0 0 4px #fff, 0 0 18px rgba(255,255,255,.6); } }
+.board.won .cell { animation: waveIn .6s ease both; animation-delay: var(--d); }
+@keyframes waveIn { 40% { filter: brightness(1.6); transform: scale(.92); } }
+.msg { min-height: 20px; text-align: center; font-size: 14px; color: var(--muted); line-height: 1.45; }
+.msg b { color: var(--text); }
+.tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.tools .btn { padding: 8px 6px; font-size: .9rem; letter-spacing: 1.5px; }
+.levels { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 12px; max-height: 46vh; overflow-y: auto; padding: 2px; }
+.levels button {
+  aspect-ratio: 1; border-radius: 10px; border: 1.5px solid var(--border); background: var(--raised); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 19px; line-height: 1;
+}
+.levels button small { font-family: 'DM Sans', sans-serif; font-size: 9px; color: var(--good); min-height: 10px; margin-top: 2px; }
+.levels button.cur { border-color: var(--x-color); }
+.levels button:disabled { opacity: .3; cursor: default; }
+.chapter { grid-column: 1 / -1; text-align: left; font-size: 12px; color: var(--muted); margin: 8px 0 2px; }
+.opt { display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.opt small { display: block; color: var(--muted); font-size: 12px; }
+.switch { width: 44px; height: 26px; border-radius: 13px; border: 0; background: var(--line); position: relative; cursor: pointer; flex-shrink: 0; transition: background .2s; }
+.switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.switch[aria-checked="true"] { background: var(--x-color); }
+.switch[aria-checked="true"]::after { transform: translateX(18px); }
+.rules { text-align: left; font-size: 14px; line-height: 1.55; color: var(--text); margin: 0 0 14px; padding-left: 18px; }
+.rules li { margin-bottom: 4px; }
+.demo { display: grid; grid-template-columns: repeat(4, 34px); gap: 0; justify-content: center; margin: 0 auto 14px; border: 2px solid #05050a; border-radius: 8px; overflow: hidden; width: max-content; }
+.demo span { width: 34px; height: 34px; display: grid; place-items: center; }
+.demo i { width: 60%; aspect-ratio: 1; border-radius: 50%; border: 4px solid #0a0a0f; background: rgba(255,255,255,.28); }
+@media (max-width: 480px) { .tools .btn .ico { display: none; } .keys { display: none; } }

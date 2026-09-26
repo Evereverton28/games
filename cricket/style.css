@@ -1,0 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap');
+.arena canvas { max-height: calc(100dvh - 300px); width: auto; max-width: 100%; margin: 0 auto; touch-action: none; cursor: pointer; }
+.recent { display: flex; gap: 5px; justify-content: center; min-height: 30px; flex-wrap: wrap; }
+.recent span {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 17px; background: var(--surface); border: 1.5px solid var(--border);
+  animation: popIn .25s ease both;
+}
+.recent .r4 { background: rgba(56,189,248,.18); border-color: var(--o-color); color: var(--o-color); }
+.recent .r6 { background: rgba(249,115,22,.2); border-color: var(--x-color); color: var(--x-color); }
+.recent .rw { background: rgba(244,63,94,.2); border-color: var(--bad); color: var(--bad); }
+.recent .r0 { color: var(--muted); }
+.shots { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.shots .btn { padding: 16px 10px; font-size: 1.3rem; touch-action: manipulation; }
+.shots .btn:active { transform: scale(.97); }
+.card { text-align: left; font-size: 13px; color: var(--muted); line-height: 1.55; margin: -4px 0 14px; }
+.card b { color: var(--text); }
+.arena canvas { border-color: #2b2622; }

@@ -685,6 +685,7 @@
     <button class="filter-btn" data-filter="arcade">🕹 Arcade</button>
     <button class="filter-btn" data-filter="puzzle">🧩 Puzzle</button>
     <button class="filter-btn" data-filter="racing">🚗 Racing</button>
+    <button class="filter-btn" data-filter="sports">🏏 Sports</button>
     <button class="filter-btn" data-filter="word">📝 Word</button>
   </div>
 </div>
@@ -720,6 +721,7 @@
 ═══════════════════════════════════════════════════════════ */
 const GAMES = [
   { id:'highway-racing',title:'Highway Blitz',  emoji:'🏎️', desc:'Lane-hop through traffic across four phases: day, dusk, night and a storm. Nitro, shields and near-miss bonuses.', tags:['racing','arcade'], color:'#38bdf8', path:'highway-racing/index.html', featured:true },
+  { id:'cricket',       title:'Cricket',        emoji:'🏏', desc:'One-tap batting from behind the stumps. Time it to loft sixes, find the gaps, and bat until you are out.', tags:['sports','arcade'], color:'#22c55e', path:'cricket/index.html' },
   { id:'chess',         title:'Chess',         emoji:'♟️', desc:'Full rules including castling, en passant and promotion. Three computer strengths or two players.', tags:['strategy'],         color:'#f97316', path:'chess/index.html',         featured:false },
   { id:'checkers',      title:'Checkers',       emoji:'🔴', desc:'Mandatory captures, multi-jumps and kings. Play the computer at three strengths or a friend.',  tags:['strategy'],         color:'#ef4444', path:'checkers/index.html' },
   { id:'tic-tac-toe',   title:'Tic-Tac-Toe',   emoji:'✖️', desc:'X vs O against the computer or a friend. Hard mode never loses.',                             tags:['strategy','puzzle'], color:'#38bdf8', path:'tic-tac-toe/index.html' },
@@ -739,6 +741,8 @@ const GAMES = [
   { id:'space-invaders',title:'Space Invaders', emoji:'👾', desc:'Hold off a marching fleet that speeds up as it thins. Crumbling bunkers and a mystery UFO.', tags:['arcade'],           color:'#a78bfa', path:'space-invaders/index.html' },
   { id:'whack-a-mole',  title:'Whack-a-Mole',   emoji:'🔨', desc:'Bop moles for points and grab the gold ones, but dodge the bombs. 30 seconds on the clock.', tags:['arcade'],           color:'#f97316', path:'whack-a-mole/index.html' },
   { id:'lights-out',    title:'Lights Out',     emoji:'💡', desc:'Switch every light off. 25 levels from 3×3 to 7×7, real hints and star ratings.',           tags:['puzzle'],           color:'#facc15', path:'lights-out/index.html' },
+  { id:'pointers',      title:'Pointers',       emoji:'🏹', desc:'Untangle winding arrows of every length. Each escapes only when the way ahead is clear, so find the right order. 42 levels.', tags:['puzzle'], color:'#f97316', path:'pointers/index.html' },
+  { id:'o-logic',       title:'O-Logic',        emoji:'⭕', desc:'One O in every row, column and colour region, and no two may touch. 48 levels, a daily puzzle and explained hints.', tags:['puzzle'], color:'#a78bfa', path:'o-logic/index.html' },
 ];
 
 /* ═══════════════════════════════════════════════════════════
